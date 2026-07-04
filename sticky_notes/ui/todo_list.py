@@ -58,7 +58,10 @@ class TodoList(tk.Frame):
 
         checkbox = tk.Button(
             row,
-            image=self.icons.checkbox_on if todo.completed else self.icons.checkbox_off,
+            image=self.icons.themed(
+                "checkbox_on" if todo.completed else "checkbox_off",
+                theme.icon_tone,
+            ),
             command=lambda: self.on_toggle(todo.id, not todo.completed),
             bg=theme.background,
             activebackground=theme.hover,
@@ -93,7 +96,7 @@ class TodoList(tk.Frame):
 
         delete_button = tk.Button(
             row,
-            image=self.icons.delete,
+            image=self.icons.themed("delete", theme.icon_tone),
             command=lambda: self.on_delete(todo.id),
             width=24,
             height=24,

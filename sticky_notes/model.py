@@ -5,8 +5,18 @@ from typing import Any, Iterable
 from uuid import uuid4
 
 
-STATE_VERSION = 3
-NOTE_COLORS = {"yellow", "offwhite"}
+STATE_VERSION = 4
+NOTE_COLORS = {
+    "yellow",
+    "offwhite",
+    "lime",
+    "lilac",
+    "cream",
+    "pink",
+    "mint",
+    "coral",
+    "navy",
+}
 
 
 def _new_id() -> str:

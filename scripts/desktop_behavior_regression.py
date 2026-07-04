@@ -57,6 +57,24 @@ def main() -> int:
         controller.root.update()
         window = controller.windows[note.id]
 
+        controller.raise_notes()
+        controller.root.update()
+        unpinned_topmost = bool(window.window.wm_attributes("-topmost"))
+        evidence["unpinned_stays_unpinned_after_raise"] = not unpinned_topmost
+        if unpinned_topmost:
+            failures.append("raising notes permanently pinned an unpinned note")
+
+        note.pinned = True
+        window.sync_topmost()
+        controller.raise_notes()
+        controller.root.update()
+        pinned_topmost = bool(window.window.wm_attributes("-topmost"))
+        evidence["pinned_stays_pinned_after_raise"] = pinned_topmost
+        if not pinned_topmost:
+            failures.append("raising notes unpinned a pinned note")
+        note.pinned = False
+        window.sync_topmost()
+
         windows = visible_windows(os.getpid())
         if len(windows) != 1:
             failures.append(f"expected one visible note window, got {len(windows)}")

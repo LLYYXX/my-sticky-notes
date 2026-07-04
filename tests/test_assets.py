@@ -7,6 +7,19 @@ from PIL import Image
 
 
 class AssetTests(unittest.TestCase):
+    def test_dark_note_theme_has_complete_light_icon_set(self) -> None:
+        icon_dir = Path(__file__).resolve().parents[1] / "assets" / "icons"
+        expected = {
+            "add-light.png",
+            "delete-light.png",
+            "pin-light.png",
+            "checkbox-off-light.png",
+            "checkbox-on-light.png",
+            "resize-corner-light.png",
+        }
+
+        self.assertTrue(expected.issubset({path.name for path in icon_dir.iterdir()}))
+
     def test_resize_grip_has_no_horizontal_bottom_edge(self) -> None:
         path = (
             Path(__file__).resolve().parents[1]

@@ -128,6 +128,10 @@ class TitleBar(tk.Frame):
                 activebackground=theme.hover,
                 activeforeground=theme.text,
             )
+        self.pin_button.configure(image=self._icons.themed("pin", theme.icon_tone))
+        self.buttons[1].configure(
+            image=self._icons.themed("delete", theme.icon_tone)
+        )
         self._apply_pin_state()
 
     def _apply_pin_state(self) -> None:

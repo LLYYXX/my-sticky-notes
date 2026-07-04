@@ -147,13 +147,17 @@ class NoteWindow:
         self.add_box.configure(bg=theme.background)
         self.add_box_content.configure(bg=theme.input_background)
         self.add_icon.configure(bg=theme.input_background)
+        self.add_icon.configure(image=self.icons.themed("add", theme.icon_tone))
         self.add_entry.configure(
             bg=theme.input_background,
             fg=theme.muted,
             insertbackground=theme.text,
             disabledbackground=theme.input_background,
         )
-        self.resize_grip.configure(bg=theme.background)
+        self.resize_grip.configure(
+            bg=theme.background,
+            image=self.icons.themed("resize_corner", theme.icon_tone),
+        )
         self._redraw_add_box()
         self.todo_list.render(self.note.todos, theme)
 
@@ -171,13 +175,6 @@ class NoteWindow:
     def destroy(self) -> None:
         if self.window.winfo_exists():
             self.window.destroy()
-
-    def raise_window(self) -> None:
-        if not self.window.winfo_exists():
-            return
-        self.window.deiconify()
-        self.window.lift()
-        self.window.after(0, self._apply_window_style)
 
     def sync_topmost(self) -> None:
         settings_open = self.controller.settings_window is not None

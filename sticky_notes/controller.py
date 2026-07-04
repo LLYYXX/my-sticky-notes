@@ -9,7 +9,11 @@ from .model import AppSettings, Note
 from .platform.autostart import AutostartManager
 from .platform.single_instance import SingleInstance
 from .platform.tray import SystemTray
-from .platform.windows import clamp_geometry, top_right_geometry
+from .platform.windows import (
+    bring_windows_to_front,
+    clamp_geometry,
+    top_right_geometry,
+)
 from .store import StateStore
 from .ui.icons import IconSet
 from .ui.note_window import NoteWindow
@@ -128,8 +132,21 @@ class StickyNotesController:
         self.store.save(self.state)
 
     def raise_notes(self) -> None:
-        for window in list(self.windows.values()):
-            window.raise_window()
+        windows = list(self.windows.values())
+        bring_windows_to_front(window.window for window in windows)
+        for window in windows:
+            window.sync_topmost()
+
+    def activate_workspace(self) -> None:
+        """Bring all notes forward while keeping Settings as the active window."""
+        windows = list(self.windows.values())
+        surfaces = [window.window for window in windows]
+        settings = self.settings_window
+        if settings is not None and settings.winfo_exists():
+            surfaces.append(settings)
+        bring_windows_to_front(surfaces)
+        for window in windows:
+            window.sync_topmost()
 
     def open_settings(self) -> None:
         if self.settings_window is not None and self.settings_window.winfo_exists():
@@ -142,6 +159,7 @@ class StickyNotesController:
             replace(self.state.settings),
             self._save_settings,
             self._settings_closed,
+            self.activate_workspace,
         )
         for window in self.windows.values():
             window.sync_topmost()

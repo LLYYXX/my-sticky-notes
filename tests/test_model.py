@@ -75,6 +75,30 @@ class ModelTests(unittest.TestCase):
         self.assertFalse(hasattr(restored.settings, "show_notes_on_autostart"))
         self.assertEqual(legacy.settings, AppSettings())
 
+    def test_all_editorial_palette_colors_round_trip(self) -> None:
+        colors = (
+            "yellow",
+            "offwhite",
+            "lime",
+            "lilac",
+            "cream",
+            "pink",
+            "mint",
+            "coral",
+            "navy",
+        )
+
+        for color in colors:
+            with self.subTest(color=color):
+                restored = AppState.from_dict(
+                    AppState(
+                        notes=[Note(color=color)],
+                        settings=AppSettings(default_color=color),
+                    ).to_dict()
+                )
+                self.assertEqual(restored.notes[0].color, color)
+                self.assertEqual(restored.settings.default_color, color)
+
 
 if __name__ == "__main__":
     unittest.main()

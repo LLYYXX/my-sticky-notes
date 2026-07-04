@@ -15,7 +15,6 @@ WM_APP = 0x8000
 WM_CLOSE = 0x0010
 WM_DESTROY = 0x0002
 WM_NULL = 0x0000
-WM_TIMER = 0x0113
 WM_LBUTTONUP = 0x0202
 WM_LBUTTONDBLCLK = 0x0203
 WM_RBUTTONUP = 0x0205
@@ -45,7 +44,7 @@ CMD_AUTOSTART = 3
 CMD_EXIT = 4
 TRAY_ICON_ID = 1
 TRAY_CALLBACK_MESSAGE = WM_APP + 1
-LEFT_CLICK_TIMER_ID = 1
+LEFT_CLICK_ACTION = "show"
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,16 +167,6 @@ def _configure_win32_api() -> tuple[object, object, object]:
         wintypes.LPARAM,
     ]
     user32.PostMessageW.restype = wintypes.BOOL
-    user32.SetTimer.argtypes = [
-        wintypes.HWND,
-        ctypes.c_size_t,
-        wintypes.UINT,
-        wintypes.LPVOID,
-    ]
-    user32.SetTimer.restype = ctypes.c_size_t
-    user32.KillTimer.argtypes = [wintypes.HWND, ctypes.c_size_t]
-    user32.KillTimer.restype = wintypes.BOOL
-    user32.GetDoubleClickTime.restype = wintypes.UINT
     user32.GetMessageW.argtypes = [
         ctypes.POINTER(wintypes.MSG),
         wintypes.HWND,
@@ -324,25 +313,15 @@ class SystemTray:
                     if skip_next_left_up:
                         skip_next_left_up = False
                     else:
-                        user32.SetTimer(
-                            hwnd,
-                            LEFT_CLICK_TIMER_ID,
-                            user32.GetDoubleClickTime(),
-                            None,
-                        )
+                        self._actions.put(LEFT_CLICK_ACTION)
                     return 0
                 if event == WM_LBUTTONDBLCLK:
-                    user32.KillTimer(hwnd, LEFT_CLICK_TIMER_ID)
                     skip_next_left_up = True
                     self._actions.put("settings")
                     return 0
                 if event in (WM_RBUTTONUP, WM_CONTEXTMENU):
                     self._show_menu(hwnd)
                     return 0
-            if message == WM_TIMER and int(wparam) == LEFT_CLICK_TIMER_ID:
-                user32.KillTimer(hwnd, LEFT_CLICK_TIMER_ID)
-                self._show_menu(hwnd)
-                return 0
             if message == self._taskbar_created:
                 self._add_icon()
                 return 0

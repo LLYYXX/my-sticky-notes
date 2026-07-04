@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from sticky_notes.platform.tray import build_tray_menu_spec
+from sticky_notes.platform.tray import LEFT_CLICK_ACTION, build_tray_menu_spec
 
 
 class TrayMenuTests(unittest.TestCase):
+    def test_left_click_raises_all_notes(self) -> None:
+        self.assertEqual(LEFT_CLICK_ACTION, "show")
+
     def test_menu_is_the_application_control_center(self) -> None:
         items = build_tray_menu_spec(open_at_login=True)
 

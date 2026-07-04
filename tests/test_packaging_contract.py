@@ -36,6 +36,12 @@ class PackagingContractTests(unittest.TestCase):
         self.assertNotIn("Portable", script)
         self.assertNotIn("Compress-Archive", script)
 
+    def test_build_cache_is_validated_against_active_python(self) -> None:
+        script = (ROOT / "build.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("import PIL._imaging, PyInstaller", script)
+        self.assertIn("--force-reinstall", script)
+
 
 if __name__ == "__main__":
     unittest.main()

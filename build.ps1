@@ -59,11 +59,16 @@ if (Test-Path -LiteralPath $LegacyPublicFolder) {
     Remove-Item -LiteralPath $LegacyPublicFolder -Recurse -Force
 }
 
-if (
-    -not (Test-Path -LiteralPath (Join-Path $Tools "PyInstaller\__init__.py")) -or
-    -not (Test-Path -LiteralPath (Join-Path $Tools "PIL\__init__.py"))
-) {
-    & $Python -m pip install --disable-pip-version-check --ignore-requires-python --upgrade --target $Tools -r (Join-Path $Root "requirements-build.txt")
+$BuildDependenciesReady = (
+    (Test-Path -LiteralPath (Join-Path $Tools "PyInstaller\__init__.py")) -and
+    (Test-Path -LiteralPath (Join-Path $Tools "PIL\__init__.py"))
+)
+if ($BuildDependenciesReady) {
+    & $Python -c "import sys; sys.path.insert(0, sys.argv[1]); import PIL._imaging, PyInstaller" $Tools
+    $BuildDependenciesReady = $LASTEXITCODE -eq 0
+}
+if (-not $BuildDependenciesReady) {
+    & $Python -m pip install --disable-pip-version-check --ignore-requires-python --upgrade --force-reinstall --target $Tools -r (Join-Path $Root "requirements-build.txt")
     if ($LASTEXITCODE -ne 0) { throw "Unable to install build dependencies." }
 }
 
@@ -130,6 +135,8 @@ $env:TK_LIBRARY = Join-Path $TclRuntime "tk8.6"
 
 & $Python (Join-Path $Root "scripts\build_app_icon.py")
 if ($LASTEXITCODE -ne 0) { throw "Unable to build the application icon." }
+& $Python (Join-Path $Root "scripts\build_light_icons.py")
+if ($LASTEXITCODE -ne 0) { throw "Unable to build light note icons." }
 & $Python (Join-Path $Root "scripts\write_version_info.py") $Version $VersionInfo
 if ($LASTEXITCODE -ne 0) { throw "Unable to generate Windows version metadata." }
 

@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sticky_notes.controller import StickyNotesController
 from sticky_notes.store import StateStore
+from sticky_notes.theme import THEMES
 
 
 def parse_args() -> argparse.Namespace:
@@ -19,12 +20,16 @@ def parse_args() -> argparse.Namespace:
         choices=("general", "notes"),
         default="general",
     )
+    parser.add_argument("--theme", choices=tuple(THEMES), default=None)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     controller = StickyNotesController(StateStore(args.state))
+    if args.theme is not None:
+        for note in controller.state.notes:
+            note.color = args.theme
     for note in list(controller.state.notes):
         controller._open_note(note)
     if args.settings:

@@ -17,6 +17,10 @@ SWP_NOMOVE = 0x0002
 SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 SWP_FRAMECHANGED = 0x0020
+SWP_SHOWWINDOW = 0x0040
+SW_SHOWNORMAL = 1
+HWND_TOPMOST = -1
+HWND_NOTOPMOST = -2
 DWMWA_WINDOW_CORNER_PREFERENCE = 33
 DWMWA_BORDER_COLOR = 34
 DWMWA_COLOR_NONE = 0xFFFFFFFE
@@ -81,6 +85,55 @@ def set_taskbar_visibility(window: object, *, visible: bool) -> None:
         )
     except (AttributeError, OSError, ValueError):
         return
+
+
+def bring_windows_to_front(windows: Iterable[object]) -> None:
+    """Raise a group of Tk windows without changing their lasting pin state."""
+    active = [window for window in windows if window.winfo_exists()]
+    if not active:
+        return
+
+    for window in active:
+        window.deiconify()
+        window.update_idletasks()
+
+    if sys.platform != "win32":
+        for window in active:
+            window.lift()
+        active[-1].focus_force()
+        return
+
+    try:
+        user32 = ctypes.windll.user32
+        user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.ShowWindow.restype = wintypes.BOOL
+        user32.SetWindowPos.argtypes = [
+            wintypes.HWND,
+            wintypes.HWND,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            wintypes.UINT,
+        ]
+        user32.SetWindowPos.restype = wintypes.BOOL
+        user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+        user32.SetForegroundWindow.restype = wintypes.BOOL
+        handles = [_wrapper_handle(window) for window in active]
+        flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW
+
+        # A short topmost pulse lifts the entire group above unrelated apps.
+        # Callers restore each note's real pinned state immediately afterwards.
+        for hwnd in handles:
+            user32.ShowWindow(hwnd, SW_SHOWNORMAL)
+            user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
+        for hwnd in handles:
+            user32.SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+        user32.SetForegroundWindow(handles[-1])
+    except (AttributeError, OSError, ValueError):
+        for window in active:
+            window.lift()
+        active[-1].focus_force()
 
 
 def apply_note_window_style(window: object) -> None:

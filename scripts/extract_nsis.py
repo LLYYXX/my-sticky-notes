@@ -41,7 +41,10 @@ def extract_nsis(tools_directory: Path) -> Path:
         members = archive.getmembers()
         for member in members:
             _validate_member(destination, member)
-        archive.extractall(destination, members=members)
+        if sys.version_info >= (3, 12):
+            archive.extractall(destination, members=members, filter="data")
+        else:
+            archive.extractall(destination, members=members)
 
     if not _is_file_with_retry(compiler):
         raise FileNotFoundError("makensis.exe was not found after extracting smol-nsis")
