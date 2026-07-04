@@ -25,6 +25,8 @@ jobs:
           if ($env:GITHUB_REF_NAME -ne "v$version") {
             throw "Tag $env:GITHUB_REF_NAME does not match application version $version"
           }
+      - name: Install test dependencies
+        run: python -m pip install ".[dev]"
       - name: Run unit tests
         run: python -m unittest discover -v
       - name: Build Windows installer

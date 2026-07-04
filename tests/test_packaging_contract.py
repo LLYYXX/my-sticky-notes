@@ -8,6 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PackagingContractTests(unittest.TestCase):
+    def test_github_test_jobs_install_declared_dev_dependencies(self) -> None:
+        for workflow_name in ("ci.yml", "release.yml"):
+            workflow = (
+                ROOT / ".github" / "workflows" / workflow_name
+            ).read_text(encoding="utf-8")
+            self.assertIn('python -m pip install ".[dev]"', workflow)
+
     def test_installer_is_per_user_and_keeps_note_data_on_uninstall(self) -> None:
         script = (ROOT / "installer" / "MyStickyNotes.nsi").read_text(
             encoding="utf-8"
