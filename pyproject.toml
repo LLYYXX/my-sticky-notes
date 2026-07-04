@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my-sticky-notes"
+dynamic = ["version"]
+description = "A lightweight, local-first Todo sticky notes app for Windows"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "LLYYXX" }]
+keywords = ["sticky-notes", "todo", "windows", "desktop", "tkinter"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Win32 (MS Windows)",
+  "Operating System :: Microsoft :: Windows :: Windows 10",
+  "Operating System :: Microsoft :: Windows :: Windows 11",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Desktop Environment",
+]
+dependencies = []
+
+[project.gui-scripts]
+my-sticky-notes = "app:main"
+
+[project.optional-dependencies]
+dev = ["pillow==12.3.0"]
+
+[tool.setuptools]
+py-modules = ["app"]
+
+[tool.setuptools.packages.find]
+include = ["sticky_notes*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "sticky_notes.__version__" }
