@@ -115,7 +115,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "update_current": "You're up to date",
         "update_current_detail": "Current v{current}; latest GitHub release v{latest}.",
         "update_failed": "Update failed",
-        "check_update": "Check for updates",
+        "check_update": "Check",
         "checking": "Checking…",
         "retry": "Retry",
         "check_again": "Check again",

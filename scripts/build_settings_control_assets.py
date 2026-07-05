@@ -63,7 +63,7 @@ def toggle_asset(name: str, *, enabled: bool) -> None:
 
 
 def main() -> None:
-    for width, height in ((86, 38), (128, 40)):
+    for width, height in ((86, 38), (104, 38), (128, 40)):
         rounded_asset(
             f"settings-pill-black-{width}x{height}.png",
             width,

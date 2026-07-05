@@ -209,6 +209,40 @@ def _monitor_work_areas() -> list[tuple[int, int, int, int]]:
     return [area for _is_primary, area in areas]
 
 
+def primary_work_area(
+    fallback_area: Iterable[int],
+) -> tuple[int, int, int, int]:
+    """Return the primary monitor work area in the current DPI coordinate space."""
+    areas = _monitor_work_areas()
+    return areas[0] if areas else tuple(fallback_area)
+
+
+def settings_window_geometry(
+    work_area: Iterable[int],
+    *,
+    ui_scale: float = 1.0,
+    preferred_width: int = 780,
+    preferred_height: int = 660,
+    margin: int = 16,
+    decoration_width: int = 10,
+    decoration_height: int = 38,
+) -> tuple[int, int, int, int]:
+    """Fit Settings inside a work area while preserving its logical design size."""
+    left, top, right, bottom = tuple(work_area)
+    work_width = max(1, right - left)
+    work_height = max(1, bottom - top)
+    scale = max(0.75, min(float(ui_scale), 3.0))
+    chrome_width = round(decoration_width * scale)
+    chrome_height = round(decoration_height * scale)
+    available_width = max(1, work_width - margin * 2 - chrome_width)
+    available_height = max(1, work_height - margin * 2 - chrome_height)
+    width = min(round(preferred_width * scale), available_width)
+    height = min(round(preferred_height * scale), available_height)
+    x = left + max(0, (work_width - width - chrome_width) // 2)
+    y = top + max(0, (work_height - height - chrome_height) // 2)
+    return x, y, width, height
+
+
 def top_right_geometry(
     width: int,
     height: int,
@@ -217,8 +251,7 @@ def top_right_geometry(
     margin: int = 16,
 ) -> tuple[int, int, int, int]:
     """Place a new note inside the primary monitor's top-right work area."""
-    areas = _monitor_work_areas() or [tuple(fallback_area)]
-    left, top, right, bottom = areas[0]
+    left, top, right, bottom = primary_work_area(fallback_area)
     width = min(max(MIN_WIDTH, width), right - left)
     height = min(max(MIN_HEIGHT, height), bottom - top)
     x = max(left, right - width - margin)
