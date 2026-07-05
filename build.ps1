@@ -127,9 +127,28 @@ $env:PYTHONPATH = "$Tools;$Root"
 $env:PYINSTALLER_CONFIG_DIR = Join-Path $Root "build\pyinstaller-config"
 $PythonPrefix = (& $Python -c "import sys; print(sys.prefix)").Trim()
 if ($LASTEXITCODE -ne 0) { throw "Unable to query the Python runtime." }
-if (-not (Test-Path -LiteralPath (Join-Path $TclRuntime "tcl8.6\init.tcl"))) {
-    Copy-Item -LiteralPath (Join-Path $PythonPrefix "tcl") -Destination $TclRuntime -Recurse
+$CondaLibraryBin = Join-Path $PythonPrefix "Library\bin"
+if (Test-Path -LiteralPath $CondaLibraryBin) {
+    # PyInstaller does not automatically search Conda's OpenSSL DLL directory.
+    $env:PATH = "$CondaLibraryBin;$env:PATH"
 }
+$PythonTclLibrary = (& $Python -c "import tkinter; print(tkinter.Tcl().eval('info library'))").Trim()
+if ($LASTEXITCODE -ne 0) { throw "Unable to query the Tcl runtime." }
+$PythonTclRoot = Split-Path -Parent $PythonTclLibrary
+$PythonTkLibrary = Join-Path $PythonTclRoot "tk8.6"
+if (
+    -not (Test-Path -LiteralPath (Join-Path $PythonTclLibrary "init.tcl")) -or
+    -not (Test-Path -LiteralPath (Join-Path $PythonTkLibrary "tk.tcl"))
+) {
+    throw "The selected Python runtime does not include Tcl/Tk."
+}
+if (Test-Path -LiteralPath $TclRuntime) {
+    Remove-Item -LiteralPath $TclRuntime -Recurse -Force
+}
+# Tcl/Tk patch levels must match _tkinter.pyd, so never reuse another Python's cache.
+New-Item -ItemType Directory -Force -Path $TclRuntime | Out-Null
+Copy-Item -LiteralPath $PythonTclLibrary -Destination (Join-Path $TclRuntime "tcl8.6") -Recurse
+Copy-Item -LiteralPath $PythonTkLibrary -Destination (Join-Path $TclRuntime "tk8.6") -Recurse
 $env:TCL_LIBRARY = Join-Path $TclRuntime "tcl8.6"
 $env:TK_LIBRARY = Join-Path $TclRuntime "tk8.6"
 
@@ -137,6 +156,8 @@ $env:TK_LIBRARY = Join-Path $TclRuntime "tk8.6"
 if ($LASTEXITCODE -ne 0) { throw "Unable to build the application icon." }
 & $Python (Join-Path $Root "scripts\build_light_icons.py")
 if ($LASTEXITCODE -ne 0) { throw "Unable to build light note icons." }
+& $Python (Join-Path $Root "scripts\build_settings_control_assets.py")
+if ($LASTEXITCODE -ne 0) { throw "Unable to build Settings control assets." }
 & $Python (Join-Path $Root "scripts\write_version_info.py") $Version $VersionInfo
 if ($LASTEXITCODE -ne 0) { throw "Unable to generate Windows version metadata." }
 

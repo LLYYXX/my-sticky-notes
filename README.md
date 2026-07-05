@@ -1,6 +1,6 @@
 # My Sticky Notes
 
-一个本地优先、Todo 导向的极简 Windows 桌面便签。支持多张便签、置顶、通知区域托管、开机自启和 JSON 持久化，不需要账号、联网或后台服务。
+一个本地优先、Todo 导向的极简 Windows 桌面便签。支持多张便签、置顶、通知区域托管、开机自启和 JSON 持久化；除手动检查更新外，不需要账号、联网或后台服务。
 
 ![My Sticky Notes 界面](docs/screenshot.png)
 
@@ -11,6 +11,8 @@
 - 每张便签可独立置顶，位置和尺寸自动保存。
 - 便签不占用任务栏；单击通知区域图标可立即唤起全部便签，右键打开功能菜单。
 - 设置窗口打开时才显示任务栏入口。
+- “关于”页显示当前版本；发现新版本后自动下载、校验并启动官方安装包。
+- 设置界面支持中文与英文。
 - 单实例运行，重复启动会唤起现有实例。
 - 数据完全保存在本机，并保留最近一份备份。
 
@@ -34,9 +36,13 @@ My Sticky Notes Setup <版本>.exe
 
 ## 设置
 
+![关于与更新](docs/about.png)
+
 - 开机时自动启动。
-- 新建便签颜色：`淡黄`、`黯白`、`青柠`、`丁香`、`奶油`、`淡粉`、`薄荷`、`珊瑚`或`深蓝`。
-- 新建便签是否默认置顶。
+- 便签颜色：`淡黄`、`黯白`、`青柠`、`丁香`、`奶油`、`淡粉`、`薄荷`、`珊瑚`或`深蓝`；更改会立即应用到已有便签。
+- 当前和新建便签是否置顶。
+- 界面语言：中文或 English。
+- 查看当前版本，并检查、下载和启动正式更新安装包。
 
 所有设置即时保存。开机启动使用当前用户的 Windows `Run` 注册表项，不需要管理员权限。
 
@@ -50,7 +56,7 @@ My Sticky Notes Setup <版本>.exe
 
 标题、Todo、完成状态、颜色、置顶状态、窗口位置和尺寸都会保存。写入使用临时文件原子替换，并保留最近一份备份。卸载程序默认保留便签数据。
 
-应用不需要账号，不收集遥测，也不会主动联网。`MY_STICKY_NOTES_DATA_DIR` 环境变量可显式覆盖数据目录。
+应用不需要账号，也不收集遥测。只有在“关于”页点击“检查更新”时才会访问项目的 GitHub Releases API；如有更新，应用会下载 Release 中的唯一安装包与 `SHA256SUMS.txt`，校验通过后启动安装向导。`MY_STICKY_NOTES_DATA_DIR` 环境变量可显式覆盖数据目录。
 
 ## 从源码运行
 
@@ -74,6 +80,7 @@ python -m pip install ".[dev]"
 
 ```powershell
 python -m unittest discover -v
+python scripts\settings_layout_regression.py
 python scripts\ui_smoke_test.py
 python scripts\desktop_behavior_regression.py
 ```

@@ -61,8 +61,9 @@ class ModelTests(unittest.TestCase):
             notes=[Note(title="设置")],
             settings=AppSettings(
                 default_color="offwhite",
-                new_notes_pinned=True,
+                notes_pinned=True,
                 open_at_login=True,
+                language="en",
             ),
         )
 
@@ -70,10 +71,26 @@ class ModelTests(unittest.TestCase):
         legacy = AppState.from_dict({"notes": [{"title": "旧数据"}]})
 
         self.assertEqual(restored.settings.default_color, "offwhite")
-        self.assertTrue(restored.settings.new_notes_pinned)
+        self.assertTrue(restored.settings.notes_pinned)
         self.assertTrue(restored.settings.open_at_login)
+        self.assertEqual(restored.settings.language, "en")
         self.assertFalse(hasattr(restored.settings, "show_notes_on_autostart"))
         self.assertEqual(legacy.settings, AppSettings())
+
+    def test_legacy_new_note_pin_setting_migrates_to_all_notes_setting(self) -> None:
+        restored = AppState.from_dict(
+            {
+                "notes": [{"title": "旧数据"}],
+                "settings": {"new_notes_pinned": True},
+            }
+        )
+
+        self.assertTrue(restored.settings.notes_pinned)
+
+    def test_invalid_language_falls_back_to_chinese(self) -> None:
+        settings = AppSettings.from_dict({"language": "fr"})
+
+        self.assertEqual(settings.language, "zh-CN")
 
     def test_all_editorial_palette_colors_round_trip(self) -> None:
         colors = (

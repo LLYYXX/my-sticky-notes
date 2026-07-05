@@ -5,6 +5,7 @@ from dataclasses import replace
 from pathlib import Path
 from tkinter import messagebox
 
+from .i18n import tr
 from .model import AppSettings, Note
 from .platform.autostart import AutostartManager
 from .platform.single_instance import SingleInstance
@@ -18,6 +19,7 @@ from .store import StateStore
 from .ui.icons import IconSet
 from .ui.note_window import NoteWindow
 from .ui.settings_window import SettingsWindow
+from .update_checker import DownloadedUpdate, launch_update_installer
 
 
 class StickyNotesController:
@@ -85,9 +87,9 @@ class StickyNotesController:
             width, height = 320, 360
         settings = self.state.settings
         note = Note(
-            title="新便签",
+            title=tr("new_note", settings.language),
             color=settings.default_color,
-            pinned=settings.new_notes_pinned,
+            pinned=settings.notes_pinned,
             x=x,
             y=y,
             width=width,
@@ -104,8 +106,8 @@ class StickyNotesController:
         if note is None:
             return
         if note.todos and not messagebox.askyesno(
-            "删除便签",
-            "这张便签里还有待办。确定删除吗？",
+            tr("delete_note", self.state.settings.language),
+            tr("delete_note_confirm", self.state.settings.language),
             parent=self.windows[note_id].window,
         ):
             return
@@ -160,6 +162,7 @@ class StickyNotesController:
             self._save_settings,
             self._settings_closed,
             self.activate_workspace,
+            install_update=self._install_update,
         )
         for window in self.windows.values():
             window.sync_topmost()
@@ -229,19 +232,37 @@ class StickyNotesController:
 
     def _save_settings(self, settings: AppSettings) -> bool:
         settings.normalize()
+        previous = self.state.settings
         if self.system_integration:
             try:
                 self.autostart.set_enabled(settings.open_at_login)
                 if self.autostart.is_enabled() != settings.open_at_login:
-                    raise OSError("系统未接受开机启动设置")
+                    raise OSError(
+                        tr("autostart_rejected", settings.language)
+                    )
             except OSError as exc:
                 messagebox.showerror(
-                    "无法更新开机启动",
+                    tr("autostart_error_title", settings.language),
                     str(exc),
                     parent=self.settings_window or self.root,
                 )
                 return False
         self.state.settings = settings
+        color_changed = settings.default_color != previous.default_color
+        pin_changed = settings.notes_pinned != previous.notes_pinned
+        language_changed = settings.language != previous.language
+        for note in self.state.notes:
+            window = self.windows.get(note.id)
+            if color_changed:
+                note.color = settings.default_color
+                if window is not None:
+                    window.apply_theme()
+            if pin_changed:
+                note.pinned = settings.notes_pinned
+                if window is not None:
+                    window.set_pinned(settings.notes_pinned)
+            if language_changed and window is not None:
+                window.refresh_language()
         self.save_now()
         self._update_tray_state()
         return True
@@ -264,7 +285,12 @@ class StickyNotesController:
             return
         self.tray.update_state(
             open_at_login=self.state.settings.open_at_login,
+            language=self.state.settings.language,
         )
+
+    @staticmethod
+    def _install_update(update: DownloadedUpdate) -> None:
+        launch_update_installer(update)
 
     def _drain_tray_actions(self) -> None:
         if self._stopping:

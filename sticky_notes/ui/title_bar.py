@@ -12,6 +12,7 @@ class TitleBar(tk.Frame):
         self,
         master: tk.Misc,
         title: str,
+        default_title: str,
         icons: IconSet,
         pinned: bool,
         on_pin: Callable[[], None],
@@ -26,6 +27,7 @@ class TitleBar(tk.Frame):
         self._on_title_change = on_title_change
         self._icons = icons
         self._pinned = pinned
+        self._default_title = default_title
         self.title_label = tk.Label(
             self,
             text=title,
@@ -77,6 +79,9 @@ class TitleBar(tk.Frame):
         if hasattr(self, "_theme"):
             self._apply_pin_state()
 
+    def set_default_title(self, title: str) -> None:
+        self._default_title = title
+
     def begin_title_edit(self) -> None:
         if hasattr(self, "_title_entry") and self._title_entry.winfo_exists():
             return
@@ -100,7 +105,7 @@ class TitleBar(tk.Frame):
     def _finish_title_edit(self, _event: tk.Event | None = None) -> None:
         if not hasattr(self, "_title_entry") or not self._title_entry.winfo_exists():
             return
-        title = self._title_entry.get().strip() or "新便签"
+        title = self._title_entry.get().strip() or self._default_title
         self.title_label.configure(text=title)
         self._title_entry.destroy()
         self.title_label.pack(side="left", fill="both", expand=True)

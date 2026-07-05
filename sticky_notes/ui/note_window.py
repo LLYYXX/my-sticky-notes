@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from typing import TYPE_CHECKING
 
+from ..i18n import tr
 from ..model import Note, Todo
 from ..platform.windows import (
     MIN_HEIGHT,
@@ -51,6 +52,7 @@ class NoteWindow:
         self.title_bar = TitleBar(
             self.surface,
             title=note.title,
+            default_title=tr("new_note", controller.state.settings.language),
             icons=icons,
             pinned=note.pinned,
             on_pin=self._toggle_pin,
@@ -109,6 +111,9 @@ class NoteWindow:
         self.add_entry.bind("<Return>", self._add_todo)
         self.add_entry.bind("<FocusIn>", self._clear_placeholder)
         self.add_entry.bind("<FocusOut>", self._restore_placeholder)
+        self._placeholder_value = tr(
+            "add_todo", controller.state.settings.language
+        )
 
         self.resize_grip = tk.Label(
             self.footer,
@@ -180,6 +185,22 @@ class NoteWindow:
         settings_open = self.controller.settings_window is not None
         self.window.wm_attributes("-topmost", self.note.pinned and not settings_open)
 
+    def set_pinned(self, pinned: bool) -> None:
+        self.note.pinned = pinned
+        self.title_bar.set_pinned(pinned)
+        self.sync_topmost()
+
+    def refresh_language(self) -> None:
+        was_placeholder = self.add_entry.get() == self._placeholder_value
+        self._placeholder_value = tr(
+            "add_todo", self.controller.state.settings.language
+        )
+        self.title_bar.set_default_title(
+            tr("new_note", self.controller.state.settings.language)
+        )
+        if was_placeholder:
+            self._set_placeholder()
+
     def _change_title(self, title: str) -> None:
         self.note.title = title
         self.window.title(title)
@@ -217,7 +238,7 @@ class NoteWindow:
 
     def _add_todo(self, _event: tk.Event | None = None) -> str:
         value = self.add_entry.get().strip()
-        if not value or value == "添加待办":
+        if not value or value == self._placeholder_value:
             return "break"
         self.note.todos.append(Todo(text=value, order=len(self.note.todos)))
         self.add_entry.delete(0, "end")
@@ -228,11 +249,11 @@ class NoteWindow:
     def _set_placeholder(self) -> None:
         theme = get_theme(self.note.color)
         self.add_entry.delete(0, "end")
-        self.add_entry.insert(0, "添加待办")
+        self.add_entry.insert(0, self._placeholder_value)
         self.add_entry.configure(fg=theme.muted)
 
     def _clear_placeholder(self, _event: tk.Event | None = None) -> None:
-        if self.add_entry.get() == "添加待办":
+        if self.add_entry.get() == self._placeholder_value:
             self.add_entry.delete(0, "end")
             self.add_entry.configure(fg=get_theme(self.note.color).text)
 

@@ -4,8 +4,10 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable
 from uuid import uuid4
 
+from .i18n import DEFAULT_LANGUAGE, normalize_language
 
-STATE_VERSION = 4
+
+STATE_VERSION = 5
 NOTE_COLORS = {
     "yellow",
     "offwhite",
@@ -33,19 +35,22 @@ def _as_int(value: Any, default: int) -> int:
 @dataclass(slots=True)
 class AppSettings:
     default_color: str = "yellow"
-    new_notes_pinned: bool = False
+    notes_pinned: bool = False
     open_at_login: bool = False
+    language: str = DEFAULT_LANGUAGE
 
     def normalize(self) -> None:
         if self.default_color not in NOTE_COLORS:
             self.default_color = "yellow"
+        self.language = normalize_language(self.language)
 
     def to_dict(self) -> dict[str, Any]:
         self.normalize()
         return {
             "default_color": self.default_color,
-            "new_notes_pinned": self.new_notes_pinned,
+            "notes_pinned": self.notes_pinned,
             "open_at_login": self.open_at_login,
+            "language": self.language,
         }
 
     @classmethod
@@ -54,8 +59,11 @@ class AppSettings:
             return cls()
         settings = cls(
             default_color=str(value.get("default_color", "yellow")),
-            new_notes_pinned=bool(value.get("new_notes_pinned", False)),
+            notes_pinned=bool(
+                value.get("notes_pinned", value.get("new_notes_pinned", False))
+            ),
             open_at_login=bool(value.get("open_at_login", False)),
+            language=str(value.get("language", DEFAULT_LANGUAGE)),
         )
         settings.normalize()
         return settings

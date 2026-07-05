@@ -20,6 +20,18 @@ class TrayMenuTests(unittest.TestCase):
         autostart = next(item for item in items if item.action == "autostart")
         self.assertTrue(autostart.checked)
 
+    def test_menu_can_switch_to_english(self) -> None:
+        labels = [
+            item.label
+            for item in build_tray_menu_spec(
+                open_at_login=False,
+                language="en",
+            )
+        ]
+
+        self.assertIn("New note", labels)
+        self.assertIn("Settings…", labels)
+
 
 if __name__ == "__main__":
     unittest.main()

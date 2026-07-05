@@ -8,6 +8,7 @@ from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..i18n import DEFAULT_LANGUAGE, tr
 from .single_instance import SHOW_MESSAGE_NAME
 
 
@@ -21,6 +22,7 @@ WM_RBUTTONUP = 0x0205
 WM_CONTEXTMENU = 0x007B
 
 NIM_ADD = 0x00000000
+NIM_MODIFY = 0x00000001
 NIM_DELETE = 0x00000002
 NIF_MESSAGE = 0x00000001
 NIF_ICON = 0x00000002
@@ -58,14 +60,19 @@ class TrayMenuItem:
 def build_tray_menu_spec(
     *,
     open_at_login: bool,
+    language: str = DEFAULT_LANGUAGE,
 ) -> list[TrayMenuItem]:
     return [
-        TrayMenuItem("新建便签", "new"),
+        TrayMenuItem(tr("tray_new", language), "new"),
         TrayMenuItem("", separator=True),
-        TrayMenuItem("设置…", "settings"),
-        TrayMenuItem("开机时自动启动", "autostart", checked=open_at_login),
+        TrayMenuItem(tr("tray_settings", language), "settings"),
+        TrayMenuItem(
+            tr("tray_autostart", language),
+            "autostart",
+            checked=open_at_login,
+        ),
         TrayMenuItem("", separator=True),
-        TrayMenuItem("退出应用", "exit"),
+        TrayMenuItem(tr("tray_exit", language), "exit"),
     ]
 
 
@@ -243,6 +250,7 @@ class SystemTray:
         self._show_existing_message = 0
         self._state_lock = threading.Lock()
         self._open_at_login = False
+        self._language = DEFAULT_LANGUAGE
 
     @property
     def is_registered(self) -> bool:
@@ -283,9 +291,20 @@ class SystemTray:
             except queue.Empty:
                 return actions
 
-    def update_state(self, *, open_at_login: bool) -> None:
+    def update_state(
+        self,
+        *,
+        open_at_login: bool,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> None:
         with self._state_lock:
             self._open_at_login = open_at_login
+            self._language = language
+        if self._hwnd and self._registered:
+            data = self._notify_data()
+            ctypes.windll.shell32.Shell_NotifyIconW(
+                NIM_MODIFY, ctypes.byref(data)
+            )
 
     def _message_loop(self) -> None:
         try:
@@ -410,7 +429,8 @@ class SystemTray:
         data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP
         data.uCallbackMessage = TRAY_CALLBACK_MESSAGE
         data.hIcon = self._hicon
-        data.szTip = "桌面便利贴"
+        with self._state_lock:
+            data.szTip = tr("app_name", self._language)
         return data
 
     def _add_icon(self) -> None:
@@ -437,6 +457,7 @@ class SystemTray:
             with self._state_lock:
                 items = build_tray_menu_spec(
                     open_at_login=self._open_at_login,
+                    language=self._language,
                 )
             action_commands = {
                 "new": CMD_NEW,

@@ -42,6 +42,22 @@ class PackagingContractTests(unittest.TestCase):
         self.assertIn("import PIL._imaging, PyInstaller", script)
         self.assertIn("--force-reinstall", script)
 
+    def test_conda_openssl_runtime_is_available_to_pyinstaller(self) -> None:
+        script = (ROOT / "build.ps1").read_text(encoding="utf-8")
+
+        self.assertIn('Join-Path $PythonPrefix "Library\\bin"', script)
+        self.assertIn('$env:PATH = "$CondaLibraryBin;$env:PATH"', script)
+
+    def test_tcl_runtime_is_refreshed_for_the_active_python(self) -> None:
+        script = (ROOT / "build.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("tkinter.Tcl().eval('info library')", script)
+        self.assertIn('Remove-Item -LiteralPath $TclRuntime -Recurse -Force', script)
+        self.assertNotIn(
+            'if (-not (Test-Path -LiteralPath (Join-Path $TclRuntime',
+            script,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
