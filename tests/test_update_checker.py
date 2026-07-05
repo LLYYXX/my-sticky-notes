@@ -44,9 +44,9 @@ def release_payload(version: str = "0.3.0") -> dict[str, object]:
         ),
         "assets": [
             {
-                "name": f"My Sticky Notes Setup {version}.exe",
+                "name": f"My.Sticky.Notes.Setup.{version}.exe",
                 "browser_download_url": (
-                    f"{base}/My%20Sticky%20Notes%20Setup%20{version}.exe"
+                    f"{base}/My.Sticky.Notes.Setup.{version}.exe"
                 ),
                 "size": 12,
             },
@@ -78,7 +78,7 @@ class UpdateCheckerTests(unittest.TestCase):
 
         self.assertTrue(result.update_available)
         self.assertEqual(result.latest_version, "0.3.0")
-        self.assertEqual(result.installer_asset.name, "My Sticky Notes Setup 0.3.0.exe")
+        self.assertEqual(result.installer_asset.name, "My.Sticky.Notes.Setup.0.3.0.exe")
         self.assertEqual(result.checksum_asset.name, "SHA256SUMS.txt")
         self.assertEqual(captured["timeout"], 8.0)
         self.assertEqual(request.get_header("User-agent"), "MyStickyNotes/0.2.0")
@@ -145,6 +145,10 @@ class UpdateCheckerTests(unittest.TestCase):
                 opener=download_opener,
             )
 
+            self.assertEqual(
+                downloaded.installer_path.name,
+                "My Sticky Notes Setup 0.3.0.exe",
+            )
             self.assertEqual(downloaded.installer_path.read_bytes(), installer_bytes)
 
     def test_checksum_mismatch_removes_partial_installer(self) -> None:

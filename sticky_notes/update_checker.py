@@ -151,6 +151,15 @@ def _asset_from_json(value: object) -> ReleaseAsset | None:
     )
 
 
+def _normalized_asset_name(value: str) -> str:
+    """Match GitHub's punctuation-normalized release asset names safely."""
+    return re.sub(r"[\s._-]+", ".", value.strip()).casefold()
+
+
+def _installer_name(version: str) -> str:
+    return f"My Sticky Notes Setup {version}.exe"
+
+
 def _release_assets(
     payload: dict[str, Any], latest_version: str
 ) -> tuple[ReleaseAsset | None, ReleaseAsset | None]:
@@ -162,8 +171,15 @@ def _release_assets(
         asset = _asset_from_json(value)
         if asset is not None:
             assets.append(asset)
-    expected_installer = f"My Sticky Notes Setup {latest_version}.exe"
-    installer = next((asset for asset in assets if asset.name == expected_installer), None)
+    expected_installer = _normalized_asset_name(_installer_name(latest_version))
+    installer = next(
+        (
+            asset
+            for asset in assets
+            if _normalized_asset_name(asset.name) == expected_installer
+        ),
+        None,
+    )
     checksum = next((asset for asset in assets if asset.name == "SHA256SUMS.txt"), None)
     return installer, checksum
 
@@ -224,7 +240,11 @@ def _expected_checksum(payload: bytes, installer_name: str) -> str:
         if len(parts) != 2:
             continue
         digest, name = parts
-        if name.lstrip("*") == installer_name and _SHA256_PATTERN.fullmatch(digest):
+        if (
+            _normalized_asset_name(name.lstrip("*"))
+            == _normalized_asset_name(installer_name)
+            and _SHA256_PATTERN.fullmatch(digest)
+        ):
             return digest.casefold()
     raise UpdateCheckError("update_error_checksum")
 
@@ -264,7 +284,7 @@ def download_release_update(
         raise _map_request_error(exc) from exc
 
     target_dir = destination_dir or default_update_directory() / result.latest_version
-    target = target_dir / installer.name
+    target = target_dir / _installer_name(result.latest_version)
     partial = target.with_suffix(target.suffix + ".part")
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
