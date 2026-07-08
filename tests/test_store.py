@@ -35,12 +35,11 @@ class StateStoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.json"
             store = StateStore(path)
-            state = AppState(notes=[Note(title="本周", todos=[Todo("买牛奶")])])
+            state = AppState(notes=[Note(todos=[Todo("买牛奶")])])
 
             store.save(state)
             restored = store.load()
 
-            self.assertEqual(restored.notes[0].title, "本周")
             self.assertEqual(restored.notes[0].todos[0].text, "买牛奶")
             self.assertFalse(path.with_suffix(".json.tmp").exists())
 
@@ -48,25 +47,26 @@ class StateStoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.json"
             store = StateStore(path)
-            store.save(AppState(notes=[Note(title="旧标题")]))
-            store.save(AppState(notes=[Note(title="新标题")]))
+            store.save(AppState(notes=[Note(color="yellow")]))
+            store.save(AppState(notes=[Note(color="navy")]))
 
             with store.backup_path.open("r", encoding="utf-8") as stream:
                 backup = json.load(stream)
 
-            self.assertEqual(backup["notes"][0]["title"], "旧标题")
+            self.assertEqual(backup["notes"][0]["color"], "yellow")
+            self.assertNotIn("title", backup["notes"][0])
 
     def test_corrupt_primary_recovers_backup(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.json"
             store = StateStore(path)
-            store.save(AppState(notes=[Note(title="可恢复")]))
+            store.save(AppState(notes=[Note(color="mint")]))
             store.backup_path.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
             path.write_text("{broken", encoding="utf-8")
 
             restored = store.load()
 
-            self.assertEqual(restored.notes[0].title, "可恢复")
+            self.assertEqual(restored.notes[0].color, "mint")
             self.assertTrue(list(Path(directory).glob("state.corrupt-*.json")))
 
 

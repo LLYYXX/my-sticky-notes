@@ -140,6 +140,21 @@ def main() -> int:
             ):
                 failures.append("note window is still represented in the taskbar")
 
+            window.hide()
+            controller.root.update()
+            hidden_windows = visible_windows(os.getpid())
+            evidence["single_note_hidden_from_desktop"] = not hidden_windows
+            if hidden_windows:
+                failures.append("minimized note remained visible on the desktop")
+            controller.raise_notes()
+            controller.root.update()
+            restored_windows = visible_windows(os.getpid())
+            evidence["tray_restore_returns_hidden_note"] = (
+                len(restored_windows) == 1 and restored_windows[0][0] == hwnd
+            )
+            if len(restored_windows) != 1 or restored_windows[0][0] != hwnd:
+                failures.append("show action did not restore the hidden note")
+
             controller.open_settings()
             controller.root.update()
             settings_windows = [

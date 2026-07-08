@@ -10,7 +10,7 @@ from ..platform.windows import (
     MIN_WIDTH,
     apply_note_window_style,
 )
-from ..theme import FONT_FAMILY, get_theme
+from ..theme import THEMES, get_theme
 from .icons import IconSet
 from .title_bar import TitleBar
 from .todo_list import TodoList
@@ -33,7 +33,7 @@ class NoteWindow:
         self.window = tk.Toplevel(controller.root)
         self.window.withdraw()
         self.window.overrideredirect(True)
-        self.window.title(note.title)
+        self.window.title(tr("app_name", controller.state.settings.language))
         self.window.minsize(MIN_WIDTH, MIN_HEIGHT)
         self.window.geometry(
             f"{note.width}x{note.height}+{note.x}+{note.y}"
@@ -51,20 +51,21 @@ class NoteWindow:
 
         self.title_bar = TitleBar(
             self.surface,
-            title=note.title,
-            default_title=tr("new_note", controller.state.settings.language),
+            theme_key=note.color,
+            language=controller.state.settings.language,
             icons=icons,
             pinned=note.pinned,
+            on_color=self._change_color,
+            on_new=lambda: controller.create_note(note),
+            on_minimize=self.hide,
             on_pin=self._toggle_pin,
             on_delete=lambda: controller.delete_note(note.id),
-            on_title_change=self._change_title,
             on_drag_start=self._drag_start,
             on_drag_motion=self._drag_motion,
             on_drag_release=self._drag_release,
         )
         self.surface.grid_columnconfigure(0, weight=1)
         self.surface.grid_rowconfigure(2, weight=1)
-        self.surface.grid_rowconfigure(3, minsize=60)
         self.title_bar.grid(row=0, column=0, sticky="ew")
         self.header_separator = tk.Frame(self.surface, height=1, borderwidth=0)
         self.header_separator.grid(row=1, column=0, sticky="ew")
@@ -75,48 +76,14 @@ class NoteWindow:
             on_toggle=self._toggle_todo,
             on_edit=self._edit_todo,
             on_delete=self._delete_todo,
+            on_add=self._add_todo,
+            placeholder=tr("add_todo", controller.state.settings.language),
         )
         self.todo_list.grid(row=2, column=0, sticky="nsew")
-
-        self.footer = tk.Frame(self.surface, height=60, borderwidth=0)
-        self.footer.grid(row=3, column=0, sticky="ew")
-        self.footer.pack_propagate(False)
-        self.add_box = tk.Canvas(
-            self.footer,
-            height=38,
-            borderwidth=0,
-            highlightthickness=0,
-        )
-        self.add_box.pack(fill="x", padx=(14, 27), pady=(5, 11))
-        self.add_box_content = tk.Frame(self.add_box, borderwidth=0)
-        self._add_box_window = self.add_box.create_window(
-            (10, 2), window=self.add_box_content, anchor="nw"
-        )
-        self.add_box.bind("<Configure>", self._redraw_add_box)
-        self.add_icon = tk.Label(
-            self.add_box_content,
-            image=icons.add,
-            borderwidth=0,
-            cursor="xterm",
-        )
-        self.add_icon.pack(side="left", padx=(10, 6))
-        self.add_entry = tk.Entry(
-            self.add_box_content,
-            relief="flat",
-            borderwidth=0,
-            highlightthickness=0,
-            font=(FONT_FAMILY, 10),
-        )
-        self.add_entry.pack(side="left", fill="both", expand=True, pady=5, padx=(0, 6))
-        self.add_entry.bind("<Return>", self._add_todo)
-        self.add_entry.bind("<FocusIn>", self._clear_placeholder)
-        self.add_entry.bind("<FocusOut>", self._restore_placeholder)
-        self._placeholder_value = tr(
-            "add_todo", controller.state.settings.language
-        )
+        self.add_entry = self.todo_list.add_entry
 
         self.resize_grip = tk.Label(
-            self.footer,
+            self.surface,
             image=icons.resize_corner,
             cursor="size_nw_se",
             borderwidth=0,
@@ -128,11 +95,10 @@ class NoteWindow:
 
         self.window.bind("<Configure>", self._on_configure, add="+")
         self.window.bind("<Map>", self._on_map, add="+")
-        self.window.bind("<Escape>", lambda _event: self.add_entry.focus_set())
+        self.window.bind("<Escape>", lambda _event: self.todo_list.focus_input())
 
         self.apply_theme()
         self.refresh_todos()
-        self._set_placeholder()
         self.sync_topmost()
         self.window.after(0, self._apply_window_style)
         if visible:
@@ -148,26 +114,18 @@ class NoteWindow:
         )
         self.title_bar.apply_theme(theme)
         self.header_separator.configure(bg=theme.border)
-        self.footer.configure(bg=theme.background)
-        self.add_box.configure(bg=theme.background)
-        self.add_box_content.configure(bg=theme.input_background)
-        self.add_icon.configure(bg=theme.input_background)
-        self.add_icon.configure(image=self.icons.themed("add", theme.icon_tone))
-        self.add_entry.configure(
-            bg=theme.input_background,
-            fg=theme.muted,
-            insertbackground=theme.text,
-            disabledbackground=theme.input_background,
-        )
         self.resize_grip.configure(
             bg=theme.background,
             image=self.icons.themed("resize_corner", theme.icon_tone),
         )
-        self._redraw_add_box()
         self.todo_list.render(self.note.todos, theme)
 
-    def refresh_todos(self) -> None:
-        self.todo_list.render(self.note.todos, get_theme(self.note.color))
+    def refresh_todos(self, *, scroll_to_end: bool = False) -> None:
+        self.todo_list.render(
+            self.note.todos,
+            get_theme(self.note.color),
+            scroll_to_end=scroll_to_end,
+        )
 
     def update_geometry_model(self) -> None:
         if not self.window.winfo_exists():
@@ -178,8 +136,26 @@ class NoteWindow:
         self.note.height = self.window.winfo_height()
 
     def destroy(self) -> None:
+        self.title_bar.close_palette()
         if self.window.winfo_exists():
             self.window.destroy()
+
+    def hide(self) -> None:
+        if not self.window.winfo_exists():
+            return
+        self.title_bar.close_palette()
+        self.update_geometry_model()
+        self.window.withdraw()
+        self.controller.schedule_save()
+
+    def is_visible(self) -> bool:
+        return self.window.winfo_exists() and self.window.state() != "withdrawn"
+
+    def focus_input(self) -> None:
+        if self.window.winfo_exists():
+            self.window.deiconify()
+            self.window.lift()
+            self.todo_list.focus_input()
 
     def sync_topmost(self) -> None:
         settings_open = self.controller.settings_window is not None
@@ -191,19 +167,18 @@ class NoteWindow:
         self.sync_topmost()
 
     def refresh_language(self) -> None:
-        was_placeholder = self.add_entry.get() == self._placeholder_value
-        self._placeholder_value = tr(
-            "add_todo", self.controller.state.settings.language
+        language = self.controller.state.settings.language
+        self.window.title(tr("app_name", language))
+        self.title_bar.set_language(language)
+        self.todo_list.set_placeholder(
+            tr("add_todo", language)
         )
-        self.title_bar.set_default_title(
-            tr("new_note", self.controller.state.settings.language)
-        )
-        if was_placeholder:
-            self._set_placeholder()
 
-    def _change_title(self, title: str) -> None:
-        self.note.title = title
-        self.window.title(title)
+    def _change_color(self, theme_key: str) -> None:
+        if theme_key not in THEMES:
+            return
+        self.note.color = theme_key
+        self.apply_theme()
         self.controller.schedule_save()
 
     def _toggle_pin(self) -> None:
@@ -236,139 +211,13 @@ class NoteWindow:
     def _find_todo(self, todo_id: str) -> Todo | None:
         return next((todo for todo in self.note.todos if todo.id == todo_id), None)
 
-    def _add_todo(self, _event: tk.Event | None = None) -> str:
-        value = self.add_entry.get().strip()
-        if not value or value == self._placeholder_value:
-            return "break"
-        self.note.todos.append(Todo(text=value, order=len(self.note.todos)))
-        self.add_entry.delete(0, "end")
-        self.refresh_todos()
-        self.controller.schedule_save()
-        return "break"
-
-    def _set_placeholder(self) -> None:
-        theme = get_theme(self.note.color)
-        self.add_entry.delete(0, "end")
-        self.add_entry.insert(0, self._placeholder_value)
-        self.add_entry.configure(fg=theme.muted)
-
-    def _clear_placeholder(self, _event: tk.Event | None = None) -> None:
-        if self.add_entry.get() == self._placeholder_value:
-            self.add_entry.delete(0, "end")
-            self.add_entry.configure(fg=get_theme(self.note.color).text)
-
-    def _restore_placeholder(self, _event: tk.Event | None = None) -> None:
-        if not self.add_entry.get().strip():
-            self._set_placeholder()
-
-    def _redraw_add_box(self, _event: tk.Event | None = None) -> None:
-        if not self.add_box.winfo_exists():
+    def _add_todo(self, value: str) -> None:
+        value = value.strip()
+        if not value:
             return
-        theme = get_theme(self.note.color)
-        width = max(24, self.add_box.winfo_width())
-        height = max(24, self.add_box.winfo_height())
-        radius = 8
-        self.add_box.delete("add-box-border")
-        self.add_box.create_rectangle(
-            radius,
-            1,
-            width - radius,
-            height - 1,
-            fill=theme.input_background,
-            outline="",
-            tags="add-box-border",
-        )
-        self.add_box.create_rectangle(
-            1,
-            radius,
-            width - 1,
-            height - radius,
-            fill=theme.input_background,
-            outline="",
-            tags="add-box-border",
-        )
-        for x1, y1, x2, y2 in (
-            (1, 1, radius * 2, radius * 2),
-            (width - radius * 2, 1, width - 1, radius * 2),
-            (1, height - radius * 2, radius * 2, height - 1),
-            (
-                width - radius * 2,
-                height - radius * 2,
-                width - 1,
-                height - 1,
-            ),
-        ):
-            self.add_box.create_oval(
-                x1,
-                y1,
-                x2,
-                y2,
-                fill=theme.input_background,
-                outline="",
-                tags="add-box-border",
-            )
-        self.add_box.create_line(
-            radius,
-            1,
-            width - radius,
-            1,
-            fill=theme.border,
-            tags="add-box-border",
-        )
-        self.add_box.create_line(
-            radius,
-            height - 1,
-            width - radius,
-            height - 1,
-            fill=theme.border,
-            tags="add-box-border",
-        )
-        self.add_box.create_line(
-            1,
-            radius,
-            1,
-            height - radius,
-            fill=theme.border,
-            tags="add-box-border",
-        )
-        self.add_box.create_line(
-            width - 1,
-            radius,
-            width - 1,
-            height - radius,
-            fill=theme.border,
-            tags="add-box-border",
-        )
-        for box, start in (
-            ((1, 1, radius * 2, radius * 2), 90),
-            ((width - radius * 2, 1, width - 1, radius * 2), 0),
-            ((1, height - radius * 2, radius * 2, height - 1), 180),
-            (
-                (
-                    width - radius * 2,
-                    height - radius * 2,
-                    width - 1,
-                    height - 1,
-                ),
-                270,
-            ),
-        ):
-            self.add_box.create_arc(
-                *box,
-                start=start,
-                extent=90,
-                style=tk.ARC,
-                outline=theme.border,
-                width=1,
-                tags="add-box-border",
-            )
-        self.add_box.tag_lower("add-box-border")
-        self.add_box.coords(self._add_box_window, 10, 2)
-        self.add_box.itemconfigure(
-            self._add_box_window,
-            width=max(1, width - 20),
-            height=max(1, height - 4),
-        )
+        self.note.todos.append(Todo(text=value, order=len(self.note.todos)))
+        self.refresh_todos(scroll_to_end=True)
+        self.controller.schedule_save()
 
     def _drag_start(self, event: tk.Event) -> None:
         self._drag_origin = (
@@ -389,8 +238,6 @@ class NoteWindow:
         self.window.geometry(f"+{window_x + delta_x}+{window_y + delta_y}")
 
     def _drag_release(self, _event: tk.Event) -> None:
-        if self._drag_distance < 4:
-            self.title_bar.begin_title_edit()
         self._drag_origin = None
         self.update_geometry_model()
         self.controller.schedule_save()

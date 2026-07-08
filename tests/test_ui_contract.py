@@ -9,25 +9,34 @@ from sticky_notes.ui.settings_window import (
     RoundedPanel,
     ScrollablePageHost,
     SettingsWindow,
-    responsive_column_count,
     should_stack_control,
 )
 from sticky_notes.ui.title_bar import TitleBar
+from sticky_notes.ui.todo_list import TodoList
 
 
 class TitleBarContractTests(unittest.TestCase):
-    def test_title_bar_does_not_expose_obsolete_more_action(self) -> None:
+    def test_title_bar_is_titleless_and_exposes_note_actions(self) -> None:
         parameters = inspect.signature(TitleBar.__init__).parameters
 
-        self.assertNotIn("on_more", parameters)
-        self.assertNotIn("on_hide", parameters)
+        self.assertNotIn("title", parameters)
+        self.assertNotIn("default_title", parameters)
+        self.assertNotIn("on_title_change", parameters)
+        self.assertIn("theme_key", parameters)
+        self.assertIn("on_color", parameters)
+        self.assertIn("on_new", parameters)
+        self.assertIn("on_minimize", parameters)
+
+    def test_todo_list_wraps_rows_and_owns_trailing_input(self) -> None:
+        source = inspect.getsource(TodoList)
+
+        self.assertIn("wraplength", source)
+        self.assertIn("before=self.add_box", source)
+        self.assertNotIn("add_icon", source)
 
 
 class SettingsWindowContractTests(unittest.TestCase):
     def test_responsive_layout_rules_cover_narrow_and_wide_widths(self) -> None:
-        self.assertEqual(responsive_column_count(700), 3)
-        self.assertEqual(responsive_column_count(400), 2)
-        self.assertEqual(responsive_column_count(240), 1)
         self.assertTrue(should_stack_control(400, 104))
         self.assertFalse(should_stack_control(640, 104))
 
@@ -52,6 +61,8 @@ class SettingsWindowContractTests(unittest.TestCase):
 
         self.assertIn("ScrollablePageHost", source)
         self.assertNotIn("self.resizable(False, False)", source)
+        self.assertNotIn('self._pages["notes"]', source)
+        self.assertNotIn("_build_notes_page", source)
 
     def test_natural_height_changes_reach_the_scroll_host(self) -> None:
         panel_source = inspect.getsource(RoundedPanel)

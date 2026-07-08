@@ -9,7 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from .. import __version__
-from ..i18n import theme_label, tr
+from ..i18n import tr
 from ..model import AppSettings
 from ..platform.windows import (
     primary_work_area,
@@ -34,31 +34,9 @@ ON_PRIMARY = "#FFFFFF"
 HAIRLINE = "#E6E6E6"
 SURFACE_SOFT = "#F7F7F5"
 BLOCK_LIME = "#DCEEB1"
-BLOCK_LILAC = "#C5B0F4"
 BLOCK_CREAM = "#F4ECD6"
 MONO_FONT = "Cascadia Mono"
-THEME_KEYS = (
-    "yellow",
-    "offwhite",
-    "lime",
-    "lilac",
-    "cream",
-    "pink",
-    "mint",
-    "coral",
-    "navy",
-)
 CONTROL_ASSET_DIR = Path(__file__).resolve().parents[2] / "assets" / "icons"
-
-
-def responsive_column_count(
-    available_width: int,
-    *,
-    item_width: int = 176,
-    gap: int = 8,
-    maximum: int = 3,
-) -> int:
-    return max(1, min(maximum, available_width // (item_width + gap)))
 
 
 def should_stack_control(
@@ -191,15 +169,14 @@ class RoundedPanel(tk.Canvas):
         Tk emits ``<Configure>`` for allocated sizes, not for every requested-size
         change.  A panel inside a viewport can therefore ask for more height while
         its ancestors remain allocated to the old viewport height.  Walk to the
-        nearest containing panel first, then let the page host recompute its
-        scroll region from the fully propagated natural height.
+        containing panels and the page host so the scroll region is recomputed
+        after the fully propagated natural height settles.
         """
         ancestor = self.master
         while ancestor is not None:
             if isinstance(ancestor, RoundedPanel):
                 ancestor.after_idle(ancestor._sync_natural_height)
-                return
-            if isinstance(ancestor, ScrollablePageHost):
+            elif isinstance(ancestor, ScrollablePageHost):
                 ancestor.refresh()
                 return
             ancestor = getattr(ancestor, "master", None)
@@ -207,6 +184,7 @@ class RoundedPanel(tk.Canvas):
     def _redraw(self, _event: tk.Event | None = None) -> None:
         width = max(2, self.winfo_width())
         height = max(2, self.winfo_height())
+        requested_height = int(float(self.cget("height")))
         self.delete("panel")
         _rounded_rectangle(
             self,
@@ -230,6 +208,8 @@ class RoundedPanel(tk.Canvas):
                 1,
             ),
         )
+        if height + 1 < requested_height:
+            self.after_idle(self._propagate_natural_size_change)
 
 
 class ScrollablePageHost(tk.Frame):
@@ -300,10 +280,12 @@ class ScrollablePageHost(tk.Frame):
         if needs_scrollbar and not self._scrollbar_visible:
             self.scrollbar.grid(row=0, column=1, sticky="ns", padx=(6, 0))
             self._scrollbar_visible = True
+            self.after_idle(self._sync_layout)
         elif not needs_scrollbar and self._scrollbar_visible:
             self.scrollbar.grid_remove()
             self.canvas.yview_moveto(0.0)
             self._scrollbar_visible = False
+            self.after_idle(self._sync_layout)
 
     def on_mousewheel(self, event: tk.Event) -> str | None:
         if not self._scrollbar_visible:
@@ -541,116 +523,6 @@ class StatusPill(tk.Canvas):
         )
 
 
-class ThemeOption(tk.Canvas):
-    def __init__(
-        self,
-        master: tk.Misc,
-        theme_key: str,
-        variable: tk.StringVar,
-        language: tk.StringVar,
-        command: Callable[[], None],
-    ) -> None:
-        super().__init__(
-            master,
-            width=176,
-            height=40,
-            bg=CANVAS,
-            borderwidth=0,
-            highlightthickness=0,
-            cursor="hand2",
-            takefocus=True,
-        )
-        self._theme_key = theme_key
-        self._variable = variable
-        self._language = language
-        self._command = command
-        self._selected_image = _control_image(
-            self,
-            "settings-option-black-176x40.png",
-        )
-        self._default_image = _control_image(
-            self,
-            "settings-option-soft-176x40.png",
-        )
-        self._swatch_image = _control_image(
-            self,
-            f"settings-swatch-{theme_key}-30x30.png",
-        )
-        self.bind("<Configure>", lambda _event: self.refresh())
-        self.bind("<Button-1>", self._select)
-        self.bind("<Return>", self._select)
-        self.bind("<space>", self._select)
-
-    def _select(self, _event: tk.Event | None = None) -> None:
-        self._variable.set(self._theme_key)
-        self._command()
-
-    def refresh(self) -> None:
-        selected = self._variable.get() == self._theme_key
-        width = max(2, self.winfo_width())
-        height = max(2, self.winfo_height())
-        self.delete("all")
-        self.create_image(
-            width // 2,
-            height // 2,
-            image=self._selected_image if selected else self._default_image,
-        )
-        self.create_image(25, height // 2, image=self._swatch_image)
-        self.create_text(
-            52,
-            height // 2,
-            text=theme_label(self._theme_key, self._language.get()),
-            anchor="w",
-            fill=ON_PRIMARY if selected else INK,
-            font=(FONT_FAMILY, 9, "bold" if selected else "normal"),
-        )
-
-
-class ThemeSelector(tk.Frame):
-    def __init__(
-        self,
-        master: tk.Misc,
-        variable: tk.StringVar,
-        language: tk.StringVar,
-        command: Callable[[], None],
-    ) -> None:
-        super().__init__(master, bg=CANVAS, borderwidth=0)
-        self._variable = variable
-        self._command = command
-        self.options: list[ThemeOption] = []
-        self._columns = 0
-        for key in THEME_KEYS:
-            option = ThemeOption(self, key, variable, language, self._select)
-            self.options.append(option)
-        self.bind("<Configure>", self._reflow, add="+")
-        self._layout_options(3)
-        self.grid_anchor("center")
-
-    def _reflow(self, event: tk.Event) -> None:
-        columns = responsive_column_count(event.width)
-        self._layout_options(columns)
-
-    def _layout_options(self, columns: int) -> None:
-        if columns == self._columns:
-            return
-        self._columns = columns
-        for index, option in enumerate(self.options):
-            option.grid(
-                row=index // columns,
-                column=index % columns,
-                padx=4,
-                pady=2,
-            )
-
-    def _select(self) -> None:
-        self.refresh()
-        self._command()
-
-    def refresh(self) -> None:
-        for option in self.options:
-            option.refresh()
-
-
 class LanguageSelector(tk.Frame):
     def __init__(
         self,
@@ -721,8 +593,6 @@ class SettingsWindow(tk.Toplevel):
         self._accepted = replace(settings)
         self._restoring = False
         self._open_at_login = tk.BooleanVar(value=settings.open_at_login)
-        self._default_color = tk.StringVar(value=settings.default_color)
-        self._notes_pinned = tk.BooleanVar(value=settings.notes_pinned)
         self._language = tk.StringVar(value=settings.language)
         self._pages: dict[str, tk.Frame] = {}
         self._nav_buttons: dict[str, PillButton] = {}
@@ -783,13 +653,12 @@ class SettingsWindow(tk.Toplevel):
         self._content_host.pack(fill="both", expand=True, side="top")
         content = self._content_host.content
         self._pages["general"] = self._build_general_page(content)
-        self._pages["notes"] = self._build_notes_page(content)
         self._pages["about"] = self._build_about_page(content)
 
     def _rebuild_ui(self) -> None:
         if not self.winfo_exists():
             return
-        page = self._current_page
+        page = self._current_page if self._current_page in ("general", "about") else "general"
         for child in self.winfo_children():
             child.destroy()
         self._build_ui()
@@ -824,7 +693,6 @@ class SettingsWindow(tk.Toplevel):
         tabs.grid(row=0, column=1, sticky="e", padx=28, pady=17)
         for key, label in (
             ("general", tr("general", self._language.get())),
-            ("notes", tr("notes", self._language.get())),
             ("about", tr("about", self._language.get())),
         ):
             button = PillButton(
@@ -898,64 +766,6 @@ class SettingsWindow(tk.Toplevel):
         control = LanguageSelector(master, self._language, self._commit)
         self._refreshables.append(control)
         return control
-
-    def _build_notes_page(self, master: tk.Misc) -> tk.Frame:
-        page, body = self._page(
-            master,
-            BLOCK_LILAC,
-            tr("notes", self._language.get()),
-            tr("notes_description", self._language.get()),
-        )
-        color_card = RoundedPanel(
-            body,
-            outer=BLOCK_LILAC,
-            fill=CANVAS,
-            radius=24,
-            padding=14,
-            min_height=218,
-            outline=HAIRLINE,
-        )
-        color_card.pack(fill="x", pady=(0, 12))
-        tk.Label(
-            color_card.content,
-            text=tr("note_color", self._language.get()),
-            bg=CANVAS,
-            fg=INK,
-            anchor="w",
-            font=(FONT_FAMILY, 11, "bold"),
-        ).pack(fill="x")
-        color_description = tk.Label(
-            color_card.content,
-            text=tr("note_color_description", self._language.get()),
-            bg=CANVAS,
-            fg=INK,
-            anchor="w",
-            justify="left",
-            font=(FONT_FAMILY, 9),
-        )
-        color_description.pack(fill="x", pady=(2, 6))
-        selector = ThemeSelector(
-            color_card.content,
-            self._default_color,
-            self._language,
-            self._commit,
-        )
-        selector.pack(fill="x")
-        self._refreshables.append(selector)
-
-        def reflow_color_card(event: tk.Event) -> None:
-            color_description.configure(wraplength=max(180, event.width - 4))
-            color_card.after_idle(color_card._sync_natural_height)
-
-        color_card.content.bind("<Configure>", reflow_color_card, add="+")
-        self._setting_card(
-            body,
-            BLOCK_LILAC,
-            tr("notes_pinned", self._language.get()),
-            tr("notes_pinned_description", self._language.get()),
-            lambda row: self._toggle(row, self._notes_pinned),
-        )
-        return page
 
     def _build_about_page(self, master: tk.Misc) -> tk.Frame:
         page, body = self._page(
@@ -1226,8 +1036,6 @@ class SettingsWindow(tk.Toplevel):
 
     def _current_settings(self) -> AppSettings:
         return AppSettings(
-            default_color=self._default_color.get(),
-            notes_pinned=self._notes_pinned.get(),
             open_at_login=self._open_at_login.get(),
             language=self._language.get(),
         )
@@ -1246,8 +1054,6 @@ class SettingsWindow(tk.Toplevel):
         self._restoring = True
         try:
             self._open_at_login.set(self._accepted.open_at_login)
-            self._default_color.set(self._accepted.default_color)
-            self._notes_pinned.set(self._accepted.notes_pinned)
             self._language.set(self._accepted.language)
             self._refresh_controls()
         finally:

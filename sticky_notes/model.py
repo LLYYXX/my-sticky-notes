@@ -7,7 +7,7 @@ from uuid import uuid4
 from .i18n import DEFAULT_LANGUAGE, normalize_language
 
 
-STATE_VERSION = 5
+STATE_VERSION = 6
 NOTE_COLORS = {
     "yellow",
     "offwhite",
@@ -34,21 +34,15 @@ def _as_int(value: Any, default: int) -> int:
 
 @dataclass(slots=True)
 class AppSettings:
-    default_color: str = "yellow"
-    notes_pinned: bool = False
     open_at_login: bool = False
     language: str = DEFAULT_LANGUAGE
 
     def normalize(self) -> None:
-        if self.default_color not in NOTE_COLORS:
-            self.default_color = "yellow"
         self.language = normalize_language(self.language)
 
     def to_dict(self) -> dict[str, Any]:
         self.normalize()
         return {
-            "default_color": self.default_color,
-            "notes_pinned": self.notes_pinned,
             "open_at_login": self.open_at_login,
             "language": self.language,
         }
@@ -58,10 +52,6 @@ class AppSettings:
         if not isinstance(value, dict):
             return cls()
         settings = cls(
-            default_color=str(value.get("default_color", "yellow")),
-            notes_pinned=bool(
-                value.get("notes_pinned", value.get("new_notes_pinned", False))
-            ),
             open_at_login=bool(value.get("open_at_login", False)),
             language=str(value.get("language", DEFAULT_LANGUAGE)),
         )
@@ -101,7 +91,6 @@ class Todo:
 
 @dataclass(slots=True)
 class Note:
-    title: str = "新便签"
     color: str = "yellow"
     pinned: bool = False
     x: int = 120
@@ -112,7 +101,6 @@ class Note:
     id: str = field(default_factory=_new_id)
 
     def normalize(self) -> None:
-        self.title = self.title.strip() or "新便签"
         if self.color not in NOTE_COLORS:
             self.color = "yellow"
         self.width = max(260, self.width)
@@ -125,7 +113,6 @@ class Note:
         self.normalize()
         return {
             "id": self.id,
-            "title": self.title,
             "color": self.color,
             "pinned": self.pinned,
             "x": self.x,
@@ -148,7 +135,6 @@ class Note:
                     todos.append(todo)
         note = cls(
             id=str(value.get("id") or _new_id()),
-            title=str(value.get("title", "新便签")),
             color=str(value.get("color", "yellow")),
             pinned=bool(value.get("pinned", False)),
             x=_as_int(value.get("x"), 120),
@@ -169,11 +155,11 @@ class AppState:
 
     @classmethod
     def default(cls) -> "AppState":
-        return cls(notes=[Note(title="今天")])
+        return cls(notes=[Note()])
 
     def ensure_note(self) -> Note:
         if not self.notes:
-            self.notes.append(Note(title="今天"))
+            self.notes.append(Note())
         return self.notes[0]
 
     def to_dict(self) -> dict[str, Any]:

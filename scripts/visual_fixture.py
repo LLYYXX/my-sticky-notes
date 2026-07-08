@@ -19,9 +19,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--settings", action="store_true")
     parser.add_argument(
         "--settings-page",
-        choices=("general", "notes", "about"),
+        choices=("general", "about"),
         default="general",
     )
+    parser.add_argument("--palette", action="store_true")
     parser.add_argument("--theme", choices=tuple(THEMES), default=None)
     parser.add_argument("--language", choices=("zh-CN", "en"), default=None)
     parser.add_argument(
@@ -87,6 +88,13 @@ def main() -> None:
                     window._start_update_check()
 
         controller.root.after(200, open_settings)
+    elif args.palette:
+        def open_palette() -> None:
+            first = next(iter(controller.windows.values()), None)
+            if first is not None:
+                first.title_bar._toggle_palette()
+
+        controller.root.after(200, open_palette)
     controller.root.mainloop()
 
 

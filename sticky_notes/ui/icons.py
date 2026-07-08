@@ -3,11 +3,14 @@ from __future__ import annotations
 import tkinter as tk
 from pathlib import Path
 
+from ..model import NOTE_COLORS
+
 
 class IconSet:
     def __init__(self, root: tk.Misc) -> None:
         asset_dir = Path(__file__).resolve().parents[2] / "assets" / "icons"
         self.add = tk.PhotoImage(master=root, file=asset_dir / "add.png")
+        self.minus = tk.PhotoImage(master=root, file=asset_dir / "minus.png")
         self.delete = tk.PhotoImage(master=root, file=asset_dir / "delete.png")
         self.pin = tk.PhotoImage(master=root, file=asset_dir / "pin.png")
         self.checkbox_off = tk.PhotoImage(
@@ -21,6 +24,9 @@ class IconSet:
         )
         self.add_light = tk.PhotoImage(
             master=root, file=asset_dir / "add-light.png"
+        )
+        self.minus_light = tk.PhotoImage(
+            master=root, file=asset_dir / "minus-light.png"
         )
         self.delete_light = tk.PhotoImage(
             master=root, file=asset_dir / "delete-light.png"
@@ -37,8 +43,18 @@ class IconSet:
         self.resize_corner_light = tk.PhotoImage(
             master=root, file=asset_dir / "resize-corner-light.png"
         )
+        self.swatches = {
+            key: tk.PhotoImage(
+                master=root,
+                file=asset_dir / f"settings-swatch-{key}-30x30.png",
+            )
+            for key in NOTE_COLORS
+        }
 
     def themed(self, name: str, icon_tone: str) -> tk.PhotoImage:
         if icon_tone == "light":
             return getattr(self, f"{name}_light")
         return getattr(self, name)
+
+    def swatch(self, theme_key: str) -> tk.PhotoImage:
+        return self.swatches.get(theme_key, self.swatches["yellow"])

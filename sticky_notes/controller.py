@@ -85,11 +85,9 @@ class StickyNotesController:
         else:
             x, y = source.x + 28, source.y + 28
             width, height = 320, 360
-        settings = self.state.settings
         note = Note(
-            title=tr("new_note", settings.language),
-            color=settings.default_color,
-            pinned=settings.notes_pinned,
+            color="yellow",
+            pinned=False,
             x=x,
             y=y,
             width=width,
@@ -141,7 +139,7 @@ class StickyNotesController:
 
     def activate_workspace(self) -> None:
         """Bring all notes forward while keeping Settings as the active window."""
-        windows = list(self.windows.values())
+        windows = [window for window in self.windows.values() if window.is_visible()]
         surfaces = [window.window for window in windows]
         settings = self.settings_window
         if settings is not None and settings.winfo_exists():
@@ -248,19 +246,9 @@ class StickyNotesController:
                 )
                 return False
         self.state.settings = settings
-        color_changed = settings.default_color != previous.default_color
-        pin_changed = settings.notes_pinned != previous.notes_pinned
         language_changed = settings.language != previous.language
         for note in self.state.notes:
             window = self.windows.get(note.id)
-            if color_changed:
-                note.color = settings.default_color
-                if window is not None:
-                    window.apply_theme()
-            if pin_changed:
-                note.pinned = settings.notes_pinned
-                if window is not None:
-                    window.set_pinned(settings.notes_pinned)
             if language_changed and window is not None:
                 window.refresh_language()
         self.save_now()

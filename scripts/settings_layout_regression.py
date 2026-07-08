@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sticky_notes.model import AppSettings
 from sticky_notes.platform.windows import enable_dpi_awareness
-from sticky_notes.ui.settings_window import RoundedPanel, SettingsWindow, ThemeSelector
+from sticky_notes.ui.settings_window import RoundedPanel, SettingsWindow
 from scripts.capture_windows import visible_windows
 
 
@@ -127,7 +127,7 @@ def _scenario(
     )
     pages: dict[str, object] = {}
     try:
-        for page_name in ("general", "notes", "about"):
+        for page_name in ("general", "about"):
             window._show_page(page_name)
             window.update()
             descendants = _descendants(window._pages[page_name])
@@ -136,17 +136,6 @@ def _scenario(
                 overflow
                 for panel in panels
                 if (overflow := _panel_overflow(panel)) is not None
-            ]
-            selectors = [
-                child for child in descendants if isinstance(child, ThemeSelector)
-            ]
-            horizontal_overflow = [
-                {
-                    "required": selector.winfo_reqwidth(),
-                    "actual": selector.winfo_width(),
-                }
-                for selector in selectors
-                if selector.winfo_reqwidth() > selector.winfo_width() + 1
             ]
             content_required = window._content_host.content.winfo_reqheight()
             viewport_height = window._content_host.canvas.winfo_height()
@@ -162,7 +151,6 @@ def _scenario(
                 scroll_reaches_end = True
             pages[page_name] = {
                 "clipped_panels": clipped_panels,
-                "horizontal_overflow": horizontal_overflow,
                 "scrollable": window._content_host.overflow,
                 "missing_scrollbar": missing_scrollbar,
                 "scroll_reaches_end": scroll_reaches_end,
@@ -227,7 +215,6 @@ def main() -> int:
                 for page, result in scenario["pages"].items()
                 if (
                     result["clipped_panels"]
-                    or result["horizontal_overflow"]
                     or result["missing_scrollbar"]
                     or not result["scroll_reaches_end"]
                 )
@@ -240,9 +227,8 @@ def main() -> int:
         if args.capture_dir is not None:
             capture_cases = (
                 ("1920x1040-100pct", "zh-CN", "general"),
-                ("1920x1040-100pct", "zh-CN", "notes"),
                 ("1024x560-125pct", "zh-CN", "about"),
-                ("800x560-100pct", "en", "notes"),
+                ("800x560-100pct", "en", "general"),
             )
             specs = {str(spec["name"]): spec for spec in SCENARIOS}
             for scenario_name, language, page_name in capture_cases:

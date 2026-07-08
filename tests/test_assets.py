@@ -63,6 +63,7 @@ class AssetTests(unittest.TestCase):
         icon_dir = Path(__file__).resolve().parents[1] / "assets" / "icons"
         expected = {
             "add-light.png",
+            "minus-light.png",
             "delete-light.png",
             "pin-light.png",
             "checkbox-off-light.png",
@@ -71,6 +72,18 @@ class AssetTests(unittest.TestCase):
         }
 
         self.assertTrue(expected.issubset({path.name for path in icon_dir.iterdir()}))
+
+    def test_title_bar_has_matching_minus_icons(self) -> None:
+        icon_dir = Path(__file__).resolve().parents[1] / "assets" / "icons"
+
+        for name in ("minus.png", "minus-light.png"):
+            image = Image.open(icon_dir / name).convert("RGBA")
+            visible_rows = {
+                y
+                for y in range(image.height)
+                if any(image.getpixel((x, y))[3] for x in range(image.width))
+            }
+            self.assertEqual(visible_rows, {9, 10})
 
     def test_resize_grip_has_no_horizontal_bottom_edge(self) -> None:
         path = (

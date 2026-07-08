@@ -25,6 +25,13 @@ class ThemeTests(unittest.TestCase):
     def test_navy_uses_light_icons(self) -> None:
         self.assertEqual(THEMES["navy"].icon_tone, "light")
 
+    def test_note_text_uses_design_md_ink_tokens(self) -> None:
+        for key, theme in THEMES.items():
+            with self.subTest(theme=key):
+                expected = "#FFFFFF" if key == "navy" else "#000000"
+                self.assertEqual(theme.text, expected)
+                self.assertEqual(theme.muted, expected)
+
 
 if __name__ == "__main__":
     unittest.main()
