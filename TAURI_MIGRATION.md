@@ -31,6 +31,10 @@ to a Tauri-based desktop app for Windows and macOS.
   not also declare a second tray icon.
 - The main window starts with `skipTaskbar: true`. Opening Settings asks Rust
   to show the taskbar entry; closing Settings hides it again.
+- On Windows, Rust also flips the native extended window style between
+  `WS_EX_TOOLWINDOW` for note mode and `WS_EX_APPWINDOW` for Settings mode so
+  the taskbar behavior does not depend only on Tauri's high-level
+  `skip_taskbar` call.
 - Pinned notes are synced to the host window through a Tauri command so the
   native topmost behavior can be checked once Cargo is available.
 - The login-start setting now calls the Tauri autostart plugin through Rust
@@ -75,6 +79,9 @@ Implemented in this checkpoint:
   - DPI-aware runtime capture of the Settings screen
   - DPI-aware runtime capture of the collapsed-note state
   - Windows `WS_EX_TOPMOST` verification after clicking the pin button
+  - Windows taskbar-style verification: note mode reports
+    `toolWindow=true/appWindow=false`; Settings mode reports
+    `toolWindow=false/appWindow=true`
 - The Windows NSIS bundle has been generated at
   `src-tauri/target/release/bundle/nsis/My Sticky Notes_0.3.0-alpha.0_x64-setup.exe`.
 
@@ -85,7 +92,7 @@ Not complete yet:
   with Tauri plugins or platform code.
 - Native autostart is wired to the Tauri autostart plugin, but it still needs
   real runtime verification.
-- Tray menu actions and taskbar enumeration still need direct runtime checks.
+- Tray menu actions still need direct runtime checks.
 
 ## Required local toolchain
 

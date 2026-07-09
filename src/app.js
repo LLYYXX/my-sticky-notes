@@ -164,10 +164,6 @@ function toggleRow(key, title, hint) {
   `;
 }
 
-function noteIcon(name) {
-  return `<img class="note-icon" src="./icons/${name}.svg" alt="" aria-hidden="true" />`;
-}
-
 function renderNote(note, index) {
   const theme = palette[note.color];
   const style = [
@@ -177,7 +173,6 @@ function renderNote(note, index) {
     `--note-border:${theme.border}`,
     `--note-text:${theme.text}`,
     `--note-muted:${theme.muted}`,
-    `--note-icon-filter:${theme.iconFilter ?? "none"}`,
     `left:${note.x}px`,
     `top:${note.y}px`,
     `width:${note.width}px`,
@@ -190,10 +185,10 @@ function renderNote(note, index) {
           <span></span>
         </button>
         <div class="drag-space"></div>
-        <button class="note-action" data-action="new-from-note" data-note-id="${note.id}" title="${tr("newNote")}">${noteIcon("plus")}</button>
-        <button class="note-action" data-action="collapse-note" data-note-id="${note.id}" title="${note.collapsed ? tr("expand") : tr("collapse")}">${noteIcon(note.collapsed ? "chevron-down" : "minus")}</button>
-        <button class="note-action ${note.pinned ? "active" : ""}" data-action="pin-note" data-note-id="${note.id}" title="${tr("pin")}">${noteIcon("pin")}</button>
-        <button class="note-action" data-action="delete-note" data-note-id="${note.id}" title="${tr("delete")}">${noteIcon("x")}</button>
+        <button data-action="new-from-note" data-note-id="${note.id}" title="${tr("newNote")}">＋</button>
+        <button data-action="collapse-note" data-note-id="${note.id}" title="${note.collapsed ? tr("expand") : tr("collapse")}">${note.collapsed ? "⌄" : "−"}</button>
+        <button data-action="pin-note" data-note-id="${note.id}" class="${note.pinned ? "active" : ""}" title="${tr("pin")}">⌾</button>
+        <button data-action="delete-note" data-note-id="${note.id}" title="${tr("delete")}">×</button>
       </header>
       <div class="palette-popover" ${previewPalette && index === 0 ? "" : "hidden"}>
         ${Object.keys(palette).map((key) => `
@@ -220,7 +215,7 @@ function renderTodo(note, todo) {
     <label class="todo ${todo.completed ? "done" : ""}">
       <input type="checkbox" data-action="toggle-todo" data-note-id="${note.id}" data-todo-id="${todo.id}" ${todo.completed ? "checked" : ""} />
       <span contenteditable="true" data-edit-todo="${todo.id}" data-note-id="${note.id}">${escapeHtml(todo.text)}</span>
-      <button data-action="delete-todo" data-note-id="${note.id}" data-todo-id="${todo.id}" title="${tr("delete")}">${noteIcon("x")}</button>
+      <button data-action="delete-todo" data-note-id="${note.id}" data-todo-id="${todo.id}" title="${tr("delete")}">×</button>
     </label>
   `;
 }

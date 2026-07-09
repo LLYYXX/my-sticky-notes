@@ -81,7 +81,6 @@ export const palette = {
     border: "#514c78",
     text: "#ffffff",
     muted: "#a6a1c4",
-    iconFilter: "invert(1)",
   },
 };
 

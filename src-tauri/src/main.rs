@@ -151,6 +151,7 @@ fn set_settings_visibility(app: AppHandle, visible: bool) -> Result<(), String> 
         window
             .set_skip_taskbar(!visible)
             .map_err(|error| error.to_string())?;
+        sync_windows_taskbar_style(&window, visible)?;
         if visible {
             window.show().map_err(|error| error.to_string())?;
             window.set_focus().map_err(|error| error.to_string())?;
@@ -238,6 +239,50 @@ fn top_right_position(
     PhysicalPosition::new(max_x.max(work_area_position.x + margin), work_area_position.y + margin)
 }
 
+#[cfg(windows)]
+fn sync_windows_taskbar_style(
+    window: &tauri::WebviewWindow,
+    visible: bool,
+) -> Result<(), String> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, SWP_FRAMECHANGED,
+        SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+    };
+
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    unsafe {
+        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        let mut next = current;
+        if visible {
+            next = (next | WS_EX_APPWINDOW.0 as isize) & !(WS_EX_TOOLWINDOW.0 as isize);
+        } else {
+            next = (next | WS_EX_TOOLWINDOW.0 as isize) & !(WS_EX_APPWINDOW.0 as isize);
+        }
+        if next != current {
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next);
+            SetWindowPos(
+                hwnd,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+            )
+            .map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn sync_windows_taskbar_style(
+    _window: &tauri::WebviewWindow,
+    _visible: bool,
+) -> Result<(), String> {
+    Ok(())
+}
+
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "显示全部", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
@@ -284,6 +329,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             build_tray(app.handle())?;
+            if let Some(window) = app.handle().get_webview_window("main") {
+                let _ = window.set_skip_taskbar(true);
+                if let Err(error) = sync_windows_taskbar_style(&window, false) {
+                    eprintln!("Unable to hide notes window from taskbar: {error}");
+                }
+            }
             if let Err(error) = position_notes_window(app.handle()) {
                 eprintln!("Unable to position notes window: {error}");
             }

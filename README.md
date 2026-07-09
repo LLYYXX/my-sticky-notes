@@ -5,7 +5,7 @@
 
 > 当前 Tauri 版本仍处于迁移验证阶段。前端状态、静态契约、旧 Python 回归测试、
 > `cargo test`、Windows `tauri build`、真实 GUI 便签/设置页截图和默认右上角定位
-> 已通过；托盘菜单、置顶、自启和 macOS DMG 仍需进一步验证。
+> 已通过；托盘菜单、自启和 macOS DMG 仍需进一步验证。
 
 迁移细节和当前阻塞项见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
 
@@ -78,6 +78,7 @@ src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.0_x64-setup.exe
 - `-` 只收起内容并保留顶部长条与操作按钮；
 - 设置页可从运行时顶栏打开；
 - 置顶按钮会触发 Windows 原生 `WS_EX_TOPMOST`；
+- 默认便签窗口为 `toolWindow=true/appWindow=false`，设置页打开后切换为 `toolWindow=false/appWindow=true`；
 - Windows NSIS 安装包可生成。
 
 还需要实际检查：
