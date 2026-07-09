@@ -256,24 +256,24 @@ h2 {
   position: absolute;
   pointer-events: auto;
   overflow: visible;
-  border-radius: 12px;
+  border-radius: 9px;
   color: var(--note-text);
   background: var(--note-bg);
   border: 1px solid var(--note-border);
-  box-shadow: 0 8px 26px rgba(42, 33, 12, 0.12);
+  box-shadow: 0 6px 18px rgba(42, 33, 12, 0.12);
 }
 
 .note.pinned {
-  box-shadow: 0 10px 30px rgba(42, 33, 12, 0.18);
+  box-shadow: 0 7px 22px rgba(42, 33, 12, 0.16);
 }
 
 .note-bar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 44px;
-  padding: 7px 10px;
-  border-radius: 11px 11px 0 0;
+  gap: 2px;
+  height: 42px;
+  padding: 6px 9px;
+  border-radius: 8px 8px 0 0;
   background: var(--note-header);
   border-bottom: 1px solid var(--note-border);
   user-select: none;
@@ -288,27 +288,45 @@ h2 {
 .note-bar button {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   color: var(--note-text);
   background: transparent;
   cursor: pointer;
-  font-size: 16px;
   line-height: 1;
+  opacity: 0.78;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
 }
 
 .note-bar button:hover,
 .note-bar button.active {
-  background: rgba(0, 0, 0, 0.08);
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.note-bar button.active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.note-icon {
+  display: block;
+  width: 15px;
+  height: 15px;
+  opacity: 0.9;
+  object-fit: contain;
+  filter: var(--note-icon-filter, none);
 }
 
 .color-dot span {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   background: var(--note-bg);
-  border: 2px solid currentColor;
+  border: 1.5px solid currentColor;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
 }
 
 .note-body {
