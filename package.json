@@ -1,0 +1,19 @@
+{
+  "name": "my-sticky-notes",
+  "version": "0.3.0-alpha.0",
+  "private": true,
+  "description": "A lightweight local-first sticky todo app rebuilt with Tauri.",
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "check:frontend": "node --check src/app.js && node --check src/state.js && node --check scripts/tauri_static_check.mjs && node --check scripts/tauri_state_test.mjs && node scripts/tauri_static_check.mjs && node scripts/tauri_state_test.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4"
+  }
+}

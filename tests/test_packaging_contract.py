@@ -9,11 +9,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class PackagingContractTests(unittest.TestCase):
     def test_github_test_jobs_install_declared_dev_dependencies(self) -> None:
-        for workflow_name in ("ci.yml", "release.yml"):
-            workflow = (
-                ROOT / ".github" / "workflows" / workflow_name
-            ).read_text(encoding="utf-8")
-            self.assertIn('python -m pip install ".[dev]"', workflow)
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('python -m pip install ".[dev]"', workflow)
+
+    def test_legacy_release_is_paused_during_tauri_migration(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("workflow_dispatch", workflow)
+        self.assertIn("legacy Python release workflow is disabled", workflow)
+        self.assertNotIn("build.ps1", workflow)
+
+    def test_manual_tauri_build_targets_windows_and_macos(self) -> None:
+        workflow = (
+            ROOT / ".github" / "workflows" / "tauri-build.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("windows-latest", workflow)
+        self.assertIn("macos-latest", workflow)
+        self.assertIn("npm run tauri:build", workflow)
 
     def test_installer_is_per_user_and_keeps_note_data_on_uninstall(self) -> None:
         script = (ROOT / "installer" / "MyStickyNotes.nsi").read_text(

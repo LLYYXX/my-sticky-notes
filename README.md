@@ -1,112 +1,110 @@
 # My Sticky Notes
 
-一个本地优先、Todo 导向的极简 Windows 桌面便签。支持多张便签、置顶、通知区域托管、开机自启和 JSON 持久化；除手动检查更新外，不需要账号、联网或后台服务。
+一个本地优先、Todo 导向的极简桌面便利贴。项目当前正在从 Python/Tkinter
+迁移到 Tauri/Rust，目标是同时支持 Windows 和 macOS，并保持轻量、低打扰的桌面体验。
 
-![My Sticky Notes 界面](docs/screenshot.png)
+> 当前 Tauri 版本仍处于迁移验证阶段。前端状态、静态契约、旧 Python 回归测试、
+> `cargo test`、Windows `tauri build`、真实 GUI 便签/设置页截图和默认右上角定位
+> 已通过；托盘菜单、置顶、自启和 macOS DMG 仍需进一步验证。
 
-## 功能
+迁移细节和当前阻塞项见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
 
-- 多张无标题便签与九种独立配色，默认出现在主屏工作区右上角；新便签始终为淡黄。
-- Todo 添加、编辑、完成和删除；长条目自动换行，输入框始终跟随在最后一条下方。
-- 每张便签可独立置顶，位置和尺寸自动保存。
-- 单张便签可隐藏到通知区域且不占用任务栏；单击通知区域图标可立即唤起全部便签。
-- 设置窗口打开时才显示任务栏入口。
-- 设置窗口会按显示器工作区和 DPI 调整；内容不足以完整展示时可滚动，不会裁切底部设置。
-- “关于”页显示当前版本；发现新版本后自动下载、校验并启动官方安装包。
-- 设置界面支持中文与英文。
-- 单实例运行，重复启动会唤起现有实例。
-- 数据完全保存在本机，并保留最近一份备份。
+## 当前 Tauri 目标
 
-## 安装与启动
+- 多张无标题便签，单窗口承载，避免每张便签一个渲染进程。
+- 默认新便签按当前 viewport 出现在右上角，不依赖固定分辨率坐标。
+- 每张便签可单独选择九种颜色。
+- Todo 支持添加、编辑、完成、删除；长条目在边缘自动换行。
+- `-` 按钮语义为“收起”：只隐藏待办内容，保留顶部长条和操作按钮。
+- 置顶状态同步到原生窗口 topmost 行为。
+- 设置页按需打开；设置页打开时显示任务栏入口，关闭后恢复轻量常驻。
+- 托盘由 Rust 单一来源创建，托盘可恢复便签或打开设置。
+- 登录后自动启动已接入 Tauri autostart 插件。
+- 打包目标保留 Windows NSIS 和 macOS DMG。
 
-支持 Windows 10 和 Windows 11。请在仓库的 Releases 页面下载唯一的安装包：
-
-```text
-My Sticky Notes Setup <版本>.exe
-```
-
-安装程序默认使用当前用户目录，不需要管理员权限，也可在安装向导中修改位置：
+## 目录
 
 ```text
-%LOCALAPPDATA%\Programs\MyStickyNotes
+src/                 Tauri 前端，原生 HTML/CSS/JS
+src-tauri/           Tauri/Rust shell、托盘、状态、窗口命令、打包配置
+sticky_notes/        旧 Python/Tkinter 实现，迁移期间保留回归测试
+scripts/             图标生成、静态契约和状态测试脚本
+tests/               旧 Python 版本回归测试
 ```
 
-安装完成后，可勾选“启动 My Sticky Notes”，或从开始菜单搜索“My Sticky Notes”。应用运行后常驻通知区域；关闭设置窗口不会退出，完全退出请使用通知区域菜单中的“退出应用”。
+## 开发环境
 
-> 当前公开安装包未进行商业代码签名。Windows SmartScreen 可能显示“未知发布者”提示，请只从本仓库 Releases 下载并核对 `SHA256SUMS.txt`。
+Tauri 路线需要：
 
-## 设置
+- Node.js 18 或更新版本；
+- pnpm；
+- Rust stable 与 Cargo；
+- 对应平台的 Tauri 系统依赖。
 
-![关于与更新](docs/about.png)
-
-- 开机时自动启动。
-- 界面语言：中文或 English。
-- 查看当前版本，并检查、下载和启动正式更新安装包。
-
-所有设置即时保存。开机启动使用当前用户的 Windows `Run` 注册表项，不需要管理员权限。
-
-## 数据与隐私
-
-状态保存在：
-
-```text
-%LOCALAPPDATA%\MyStickyNotes\state.json
-```
-
-Todo、完成状态、每张便签的颜色、置顶状态、窗口位置和尺寸都会保存。便签不再保存标题。写入使用临时文件原子替换，并保留最近一份备份。卸载程序默认保留便签数据。
-
-应用不需要账号，也不收集遥测。只有在“关于”页点击“检查更新”时才会访问项目的 GitHub Releases API；如有更新，应用会下载 Release 中的唯一安装包与 `SHA256SUMS.txt`，校验通过后启动安装向导。`MY_STICKY_NOTES_DATA_DIR` 环境变量可显式覆盖数据目录。
-
-## 从源码运行
-
-需要 Python 3.11 或 3.12，以及 Python 自带的 tkinter。建议使用项目虚拟环境：
+## 可运行检查
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
+pnpm install --frozen-lockfile
+pnpm run check:frontend
+cargo check --manifest-path src-tauri\Cargo.toml
+cargo test --manifest-path src-tauri\Cargo.toml
+python -m unittest discover -s tests
+git diff --check
+```
+
+`pnpm run check:frontend` 会执行：
+
+- `src/app.js` / `src/state.js` 语法检查；
+- Tauri 静态契约检查；
+- 前端状态模型测试。
+
+## 完整 Tauri 验证
+
+```powershell
+pnpm run tauri:dev
+pnpm run tauri:build
+```
+
+当前 Windows 本地已成功生成：
+
+```text
+src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.0_x64-setup.exe
+```
+
+已在 Windows 本地实际检查：
+
+- 首张便签按当前工作区右上角定位；
+- clean state 下默认便签完整可见；
+- `-` 只收起内容并保留顶部长条与操作按钮；
+- 设置页可从运行时顶栏打开；
+- 置顶按钮会触发 Windows 原生 `WS_EX_TOPMOST`；
+- Windows NSIS 安装包可生成。
+
+还需要实际检查：
+
+- 托盘菜单是否能恢复便签、打开设置、退出应用；
+- 登录后自启是否对应系统启动项；
+- macOS DMG 是否能正常产出。
+
+## CI / Release
+
+- `CI` 会运行前端 Tauri 静态契约和旧 Python 回归测试。
+- `Tauri Build` 是手动工作流，使用 `pnpm install --frozen-lockfile` 在
+  GitHub Actions 上验证 Windows/macOS Tauri 打包。
+- `Release` 暂停自动 tag 发布；旧 Python 发布流已禁用，避免迁移期间误发旧包。
+
+## 旧 Python 版本
+
+迁移期间仍保留旧入口用于对照和回归：
+
+```powershell
 python app.py
 ```
 
-项目运行时没有第三方 Python 依赖。
+旧版本的安装包、更新器和 Windows 专属行为不再是当前主线目标。新的发布路线以
+Tauri 打包为准。
 
-## 测试
+## 许可
 
-单元测试不需要额外依赖。运行涉及屏幕截图的桌面回归前，先安装开发依赖：
-
-```powershell
-python -m pip install ".[dev]"
-```
-
-```powershell
-python -m unittest discover -v
-python scripts\settings_layout_regression.py
-python scripts\ui_smoke_test.py
-python scripts\desktop_behavior_regression.py
-```
-
-后两项会在 Windows 桌面短暂打开测试窗口。
-
-## 构建安装包
-
-内部载荷使用 PyInstaller 文件夹模式，再由 NSIS 封装为唯一发布安装包。首次构建会把固定版本的构建工具缓存到 `.build-tools`：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1 -Python python
-```
-
-输出位于 `release`：
-
-```text
-My Sticky Notes Setup <版本>.exe
-SHA256SUMS.txt
-```
-
-推送与应用版本匹配的标签（例如 `v0.1.0`）后，GitHub Actions 会运行测试、构建安装包并创建 GitHub Release。
-
-## 贡献与安全
-
-贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题报告方式见 [SECURITY.md](SECURITY.md)。版本变化记录在 [CHANGELOG.md](CHANGELOG.md)。
-
-## 许可证
-
-项目使用 [MIT License](LICENSE)。图标资源的第三方许可见 [assets/icons/LICENSE-lucide.txt](assets/icons/LICENSE-lucide.txt)。
+项目使用 [MIT License](LICENSE)。图标资源的第三方许可见
+[assets/icons/LICENSE-lucide.txt](assets/icons/LICENSE-lucide.txt)。

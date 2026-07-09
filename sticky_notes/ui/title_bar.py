@@ -123,6 +123,81 @@ class ColorPalette(tk.Toplevel):
         self._on_close()
 
 
+class ColorDotButton(tk.Canvas):
+    """A visible per-note color affordance for the title bar."""
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        theme: NoteTheme,
+        command: Callable[[], None],
+    ) -> None:
+        super().__init__(
+            master,
+            width=30,
+            height=30,
+            borderwidth=0,
+            highlightthickness=0,
+            cursor="hand2",
+            takefocus=True,
+            name="note_color",
+        )
+        self._theme = theme
+        self._command = command
+        self._hovered = False
+        self.bind("<Configure>", lambda _event: self._draw())
+        self.bind("<Enter>", self._enter)
+        self.bind("<Leave>", self._leave)
+        self.bind("<Button-1>", self._invoke)
+        self.bind("<Return>", self._invoke)
+        self.bind("<space>", self._invoke)
+        self.apply_theme(theme)
+
+    def apply_theme(self, theme: NoteTheme) -> None:
+        self._theme = theme
+        self.configure(bg=theme.header)
+        self._draw()
+
+    def _enter(self, _event: tk.Event) -> None:
+        self._hovered = True
+        self._draw()
+
+    def _leave(self, _event: tk.Event) -> None:
+        self._hovered = False
+        self._draw()
+
+    def _invoke(self, _event: tk.Event | None = None) -> str:
+        self._command()
+        return "break"
+
+    def _draw(self) -> None:
+        theme = self._theme
+        width = max(2, self.winfo_width())
+        height = max(2, self.winfo_height())
+        self.delete("all")
+        if self._hovered:
+            self.create_oval(
+                2,
+                2,
+                width - 2,
+                height - 2,
+                fill=theme.hover,
+                outline="",
+            )
+        outline = "#FFFFFF" if theme.icon_tone == "light" else "#1A1A1A"
+        inset = 6
+        self.create_oval(
+            inset,
+            inset,
+            width - inset,
+            height - inset,
+            fill=theme.background,
+            outline=outline,
+            width=2,
+        )
+
+
 class TitleBar(tk.Frame):
     def __init__(
         self,
@@ -150,18 +225,10 @@ class TitleBar(tk.Frame):
         self._pinned = pinned
         self._palette: ColorPalette | None = None
 
-        self.color_button = tk.Button(
+        self.color_button = ColorDotButton(
             self,
-            image=icons.swatch(theme_key),
+            theme=THEMES.get(theme_key, THEMES["yellow"]),
             command=self._toggle_palette,
-            width=30,
-            height=30,
-            borderwidth=0,
-            relief="flat",
-            cursor="hand2",
-            takefocus=True,
-            highlightthickness=0,
-            name="note_color",
         )
         self.color_button.pack(side="left", padx=(8, 2), pady=7)
         self.drag_region = tk.Frame(self, borderwidth=0, highlightthickness=0)
@@ -244,11 +311,7 @@ class TitleBar(tk.Frame):
         self.configure(bg=theme.header)
         self.drag_region.configure(bg=theme.header)
         self.actions.configure(bg=theme.header)
-        self.color_button.configure(
-            image=self._icons.swatch(theme.key),
-            bg=theme.header,
-            activebackground=theme.hover,
-        )
+        self.color_button.apply_theme(theme)
         for button in self.buttons.values():
             button.configure(
                 bg=theme.header,

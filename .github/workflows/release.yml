@@ -1,50 +1,13 @@
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  release:
-    runs-on: windows-latest
+  paused:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements-build.txt
-      - name: Verify tag matches application version
-        shell: powershell
+      - name: Release is paused during Tauri migration
         run: |
-          $source = Get-Content -LiteralPath sticky_notes\__init__.py -Raw
-          $version = [regex]::Match($source, '__version__\s*=\s*["'']([^"'']+)["'']').Groups[1].Value
-          if ($env:GITHUB_REF_NAME -ne "v$version") {
-            throw "Tag $env:GITHUB_REF_NAME does not match application version $version"
-          }
-      - name: Install test dependencies
-        run: python -m pip install ".[dev]"
-      - name: Run unit tests
-        run: python -m unittest discover -v
-      - name: Build Windows installer
-        shell: powershell
-        run: .\build.ps1 -Python python
-      - name: Publish GitHub release
-        shell: powershell
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $installers = @(Get-ChildItem -LiteralPath release -Filter "*.exe" -File)
-          if ($installers.Count -ne 1) {
-            throw "Expected exactly one installer, found $($installers.Count)"
-          }
-          $checksum = (Resolve-Path release\SHA256SUMS.txt).Path
-          gh release create "$env:GITHUB_REF_NAME" `
-            $installers[0].FullName `
-            $checksum `
-            --verify-tag `
-            --title "My Sticky Notes $env:GITHUB_REF_NAME" `
-            --generate-notes
+          echo "The legacy Python release workflow is disabled."
+          echo "Use the manual Tauri Build workflow for validation until the Tauri app is fully verified."

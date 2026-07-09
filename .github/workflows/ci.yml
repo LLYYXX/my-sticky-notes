@@ -11,37 +11,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  tauri-static:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate Tauri frontend scaffold
+        run: npm run check:frontend
+
   test:
     runs-on: windows-latest
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
         run: python -m pip install ".[dev]"
       - name: Run unit tests
         run: python -m unittest discover -v
-
-  package:
-    needs: test
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements-build.txt
-      - name: Build Windows installer
-        shell: powershell
-        run: .\build.ps1 -Python python
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: my-sticky-notes-windows
-          path: release/*
-          if-no-files-found: error

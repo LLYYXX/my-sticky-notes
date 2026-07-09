@@ -20,6 +20,11 @@ build/
 dist/
 release/
 *.spec
+node_modules/
+.npm-cache/
+.pnpm-store/
+src-tauri/target/
+src-tauri/gen/
 
 # Local design and QA artifacts
 .agents/

@@ -1,0 +1,421 @@
+:root {
+  color-scheme: light;
+  font-family:
+    "Inter", "SF Pro Text", "Segoe UI", "Microsoft YaHei UI", system-ui,
+    sans-serif;
+  background: transparent;
+  --ink: #050505;
+  --panel: #ffffff;
+  --hairline: #e6e1d8;
+  --dark: #1f2228;
+  --dark-soft: #34373d;
+  --lime: #dceeb1;
+  --cream: #f4ecd6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 100vw;
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--ink);
+  background: transparent;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.workspace {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  padding: 22px;
+}
+
+.top-rail {
+  position: fixed;
+  top: 22px;
+  left: 22px;
+  z-index: 40;
+  display: flex;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.rail-button {
+  min-height: 34px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.rail-button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.primary-rail {
+  color: #ffffff;
+  background: #000000;
+}
+
+.primary-rail:hover {
+  background: #242424;
+}
+
+.settings-shell {
+  position: fixed;
+  top: 74px;
+  left: 22px;
+  z-index: 35;
+  width: min(720px, calc(100vw - 44px));
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 18px 50px rgba(26, 25, 22, 0.16);
+}
+
+.settings-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 22px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #4a4b48, #2e2f2d);
+}
+
+.eyebrow {
+  display: block;
+  font-family: "Cascadia Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  opacity: 0.76;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  margin-top: 3px;
+  font-size: 22px;
+}
+
+h2 {
+  font-size: 34px;
+  letter-spacing: -0.03em;
+}
+
+.settings-tabs {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.tab,
+.primary {
+  min-width: 92px;
+  min-height: 38px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tab.active,
+.primary {
+  background: #000000;
+}
+
+.settings-page {
+  padding: 26px;
+  background: #f8f6f1;
+}
+
+.settings-card {
+  display: grid;
+  gap: 16px;
+  min-height: 290px;
+  padding: 28px;
+  border-radius: 28px;
+}
+
+.settings-card.fresh {
+  background: var(--lime);
+}
+
+.settings-card.warm {
+  background: var(--cream);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.row.no-control {
+  justify-content: start;
+}
+
+.row p {
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+.switch {
+  width: 86px;
+  height: 38px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f2f1ee;
+  cursor: pointer;
+}
+
+.switch span {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #000000;
+  transition: transform 160ms ease;
+}
+
+.switch.on span {
+  transform: translateX(48px);
+}
+
+.segmented {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.segmented button {
+  min-width: 84px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.segmented button.active {
+  color: #ffffff;
+  background: #000000;
+}
+
+.floating-add {
+  position: fixed;
+  right: 28px;
+  top: 28px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #000000;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.notes-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.note {
+  position: absolute;
+  pointer-events: auto;
+  overflow: visible;
+  border-radius: 12px;
+  color: var(--note-text);
+  background: var(--note-bg);
+  border: 1px solid var(--note-border);
+  box-shadow: 0 8px 26px rgba(42, 33, 12, 0.12);
+}
+
+.note.pinned {
+  box-shadow: 0 10px 30px rgba(42, 33, 12, 0.18);
+}
+
+.note-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 7px 10px;
+  border-radius: 11px 11px 0 0;
+  background: var(--note-header);
+  border-bottom: 1px solid var(--note-border);
+  user-select: none;
+}
+
+.drag-space {
+  flex: 1;
+  align-self: stretch;
+  cursor: grab;
+}
+
+.note-bar button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: var(--note-text);
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.note-bar button:hover,
+.note-bar button.active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.color-dot span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--note-bg);
+  border: 2px solid currentColor;
+}
+
+.note-body {
+  display: grid;
+  gap: 12px;
+  padding: 10px 18px 16px;
+}
+
+.note.collapsed .note-body,
+.note.collapsed .palette-popover {
+  display: none;
+}
+
+.todos {
+  display: grid;
+  gap: 2px;
+}
+
+.empty {
+  padding: 10px 4px;
+  color: var(--note-muted);
+}
+
+.todo {
+  display: grid;
+  grid-template-columns: 24px 1fr 28px;
+  align-items: start;
+  gap: 8px;
+  padding: 7px 0;
+  min-width: 0;
+}
+
+.todo input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.todo span {
+  min-width: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.todo.done span {
+  color: var(--note-muted);
+  text-decoration: line-through;
+}
+
+.todo button {
+  opacity: 0;
+  color: var(--note-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.todo:hover button {
+  opacity: 1;
+}
+
+.add-todo input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: var(--note-text);
+  background: var(--note-input);
+  border: 1px solid var(--note-border);
+  outline: none;
+}
+
+.palette-popover {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, 68px);
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--note-border);
+  background: var(--note-bg);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.16);
+}
+
+.palette-popover button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.palette-popover button.active,
+.palette-popover button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.palette-popover span {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+}
+
+a {
+  color: inherit;
+}
