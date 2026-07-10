@@ -81,6 +81,7 @@ const checks = [
   ["collapsed state is persisted", state.includes("collapsed: Boolean")],
   ["per-note resize is persisted", app.includes("startResize") && app.includes("bodyHeight") && views.includes("note-resize")],
   ["Tauri state commands are wired", app.includes('invoke("load_state"') && app.includes('invoke("save_state"')],
+  ["state persistence replaces JSON atomically", rust.includes("write_json_atomically") && rust.includes("create_new(true)") && rust.includes("sync_all()") && rust.includes("fs::rename")],
   ["Tauri command failures degrade safely", app.includes("console.warn(`Tauri command failed:") && app.includes("return null;")],
   ["global pointer listeners are bound once", app.includes("pointerEventsBound") && app.includes("bindPointerEvents()")],
   ["note host stays out of the taskbar", config.app.windows[0].skipTaskbar === true && rust.includes("ensure_notes_taskbar_style")],

@@ -50,7 +50,8 @@ The current release executable was checked with an isolated five-note state:
 - tray left click restores notes; the tray menu opens settings and exits;
 - a second packaged launch exits with code 0 after activating the first window;
 - release build: `My Sticky Notes_0.3.0-alpha.0_x64-setup.exe` generated;
-- five-note working set: 32.9 MB; settings-open working set: 33.1 MB.
+- five-note working set: approximately 33 MB; settings-open working set:
+  approximately 33 MB.
 
 The enforced Windows runtime budgets are 150 MB for one note, 220 MB for five
 notes, and 250 MB while Settings is open. The probe measures the application

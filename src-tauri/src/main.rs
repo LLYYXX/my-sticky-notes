@@ -1,7 +1,13 @@
 mod single_instance;
 
 use serde::{Deserialize, Serialize};
-use std::{env, fs, path::PathBuf};
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
+};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -14,6 +20,7 @@ const STATE_VERSION: u16 = 8;
 const NOTES_HOST_MAX_WIDTH: f64 = 1120.0;
 const NOTES_HOST_MAX_HEIGHT: f64 = 760.0;
 const NOTES_HOST_MARGIN: i32 = 24;
+static STATE_WRITE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -121,11 +128,8 @@ fn load_state(app: AppHandle) -> Result<AppState, String> {
 #[tauri::command]
 fn save_state(app: AppHandle, state: AppState) -> Result<(), String> {
     let path = state_path(&app)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
     let payload = serde_json::to_vec_pretty(&state).map_err(|error| error.to_string())?;
-    fs::write(path, payload).map_err(|error| error.to_string())
+    write_json_atomically(&path, &payload)
 }
 
 #[tauri::command]
@@ -164,6 +168,39 @@ fn read_json(path: &PathBuf) -> Result<Option<AppState>, String> {
     let mut state: AppState = serde_json::from_str(&payload).map_err(|error| error.to_string())?;
     state.version = STATE_VERSION;
     Ok(Some(state))
+}
+
+fn write_json_atomically(path: &Path, payload: &[u8]) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| "state path has no parent directory".to_owned())?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "state path has no file name".to_owned())?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+
+    let sequence = STATE_WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let temporary_path = parent.join(format!(".{file_name}.{}.{}.tmp", std::process::id(), sequence));
+    let write_result = (|| -> Result<(), String> {
+        let mut temporary_file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary_path)
+            .map_err(|error| error.to_string())?;
+        temporary_file
+            .write_all(payload)
+            .map_err(|error| error.to_string())?;
+        temporary_file
+            .sync_all()
+            .map_err(|error| error.to_string())?;
+        drop(temporary_file);
+        fs::rename(&temporary_path, path).map_err(|error| error.to_string())
+    })();
+    if write_result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    write_result
 }
 
 fn state_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -414,6 +451,34 @@ mod tests {
         std::fs::remove_file(&path).expect("cleanup");
         assert_eq!(state.version, STATE_VERSION);
         assert!(state.notes.is_empty());
+    }
+
+    #[test]
+    fn atomic_state_write_replaces_existing_payload_without_temp_files() {
+        let directory = std::env::temp_dir().join(format!(
+            "my-sticky-notes-atomic-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let path = directory.join("state.json");
+        std::fs::create_dir_all(&directory).expect("create state directory");
+        std::fs::write(&path, b"old").expect("write old payload");
+
+        write_json_atomically(&path, b"new").expect("replace state payload");
+
+        assert_eq!(std::fs::read(&path).expect("read new payload"), b"new");
+        assert!(
+            std::fs::read_dir(&directory)
+                .expect("read state directory")
+                .all(|entry| !entry
+                    .expect("directory entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .ends_with(".tmp"))
+        );
+        std::fs::remove_dir_all(&directory).expect("cleanup state directory");
     }
 
     #[test]
