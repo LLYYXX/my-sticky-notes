@@ -186,9 +186,9 @@ function renderNote(note, index) {
         </button>
         <div class="drag-space"></div>
         <button data-action="new-from-note" data-note-id="${note.id}" title="${tr("newNote")}">＋</button>
-        <button data-action="collapse-note" data-note-id="${note.id}" title="${note.collapsed ? tr("expand") : tr("collapse")}">${note.collapsed ? "⌄" : "−"}</button>
-        <button data-action="pin-note" data-note-id="${note.id}" class="${note.pinned ? "active" : ""}" title="${tr("pin")}">⌾</button>
         <button data-action="delete-note" data-note-id="${note.id}" title="${tr("delete")}">×</button>
+        <button data-action="pin-note" data-note-id="${note.id}" class="${note.pinned ? "active" : ""}" title="${tr("pin")}">⌾</button>
+        <button data-action="collapse-note" data-note-id="${note.id}" title="${note.collapsed ? tr("expand") : tr("collapse")}">${note.collapsed ? "⌄" : "−"}</button>
       </header>
       <div class="palette-popover" ${previewPalette && index === 0 ? "" : "hidden"}>
         ${Object.keys(palette).map((key) => `

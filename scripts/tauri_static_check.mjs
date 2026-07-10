@@ -51,11 +51,20 @@ const release = fs.existsSync(path.join(root, ".github/workflows/release.yml"))
   : "";
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const runtimeProbe = fs.readFileSync(path.join(root, "scripts/tauri_runtime_probe.py"), "utf8");
+const noteChromeOrder = [
+  'data-action="new-from-note"',
+  'data-action="delete-note"',
+  'data-action="pin-note"',
+  'data-action="collapse-note"',
+].map((needle) => app.indexOf(needle));
+const noteChromeControlsOrdered = noteChromeOrder.every((index) => index >= 0)
+  && noteChromeOrder.every((index, arrayIndex) => arrayIndex === 0 || index > noteChromeOrder[arrayIndex - 1]);
 
 const checks = [
   ["settings opens on demand", app.includes("settingsOpen") && app.includes('data-action="open-settings"')],
   ["preview states are available for visual QA", app.includes("previewCollapsed") && app.includes("previewPalette")],
   ["note chrome keeps compact text controls", app.includes('title="${tr("newNote")}">＋</button>') && app.includes('title="${tr("delete")}">×</button>') && app.includes('title="${tr("pin")}">⌾</button>') && styles.includes("border-radius: 999px;")],
+  ["note chrome keeps requested button order", noteChromeControlsOrdered],
   ["default note placement is viewport-relative", state.includes("globalThis.innerWidth") && state.includes("defaultNoteX") && !rust.includes("default_x") && rust.includes("x: Option<f64>")],
   ["legacy note coordinates are clamped into viewport", state.includes("clampToViewportX") && state.includes("clampToViewportY") && state.includes("viewportWidth - width")],
   ["collapse action is implemented", app.includes('data-action="collapse-note"') && state.includes("toggleNoteCollapsed")],
