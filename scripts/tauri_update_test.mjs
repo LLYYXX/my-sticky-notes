@@ -14,6 +14,12 @@ assert.equal(normalizeVersion("v0.3.0-alpha.0"), "0.3.0-alpha.0");
 assert.equal(compareVersions("0.3.0", "0.3.0-alpha.0"), 1);
 assert.equal(compareVersions("0.4.0", "0.3.9"), 1);
 assert.equal(compareVersions("0.3.0", "0.3.0"), 0);
+assert.equal(compareVersions("0.3.0-beta.1", "0.3.0-alpha.9"), 1);
+assert.equal(compareVersions("0.3.0-alpha.10", "0.3.0-alpha.2"), 1);
+assert.equal(compareVersions("0.3.0-alpha.2", "0.3.0-alpha.10"), -1);
+assert.equal(compareVersions("0.3.0-alpha", "0.3.0-alpha.1"), -1);
+assert.equal(compareVersions("0.3.0+build.2", "0.3.0+build.1"), 0);
+assert.throws(() => normalizeVersion("0.03.0"), /invalid release version/);
 
 {
   const result = await checkGithubRelease("0.3.0-alpha.0", async () => response({
@@ -32,4 +38,4 @@ await assert.rejects(
   /invalid release URL/,
 );
 
-console.log(JSON.stringify({ result: "passed", tests: 6 }));
+console.log(JSON.stringify({ result: "passed", tests: 12 }));

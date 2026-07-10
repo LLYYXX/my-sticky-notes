@@ -1,6 +1,7 @@
 export const RELEASES_API_URL = "https://api.github.com/repos/LLYYXX/my-sticky-notes/releases/latest";
 const PROJECT_RELEASE_PREFIX = "/LLYYXX/my-sticky-notes/releases/";
 const MAX_RESPONSE_BYTES = 1_000_000;
+const VERSION_PATTERN = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
 export async function checkGithubRelease(currentVersion, fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== "function") throw new Error("fetch is unavailable");
@@ -29,22 +30,45 @@ export function compareVersions(candidate, current) {
   const left = parseVersion(candidate);
   const right = parseVersion(current);
   for (let index = 0; index < 3; index += 1) {
-    if (left[index] !== right[index]) return left[index] > right[index] ? 1 : -1;
+    if (left.core[index] !== right.core[index]) return left.core[index] > right.core[index] ? 1 : -1;
   }
-  if (left[3] !== right[3]) return left[3] > right[3] ? 1 : -1;
-  return 0;
+  return comparePrereleases(left.prerelease, right.prerelease);
 }
 
 export function normalizeVersion(value) {
-  const match = /^v?(\d+)\.(\d+)\.(\d+)([-+][0-9A-Za-z.-]+)?$/.exec(String(value || "").trim());
+  const match = VERSION_PATTERN.exec(String(value || "").trim());
   if (!match) throw new Error("invalid release version");
-  return `${match[1]}.${match[2]}.${match[3]}${match[4] || ""}`;
+  return `${match[1]}.${match[2]}.${match[3]}${match[4] ? `-${match[4]}` : ""}${match[5] ? `+${match[5]}` : ""}`;
 }
 
 function parseVersion(value) {
-  const normalized = normalizeVersion(value);
-  const match = /^(\d+)\.(\d+)\.(\d+)([-+].+)?$/.exec(normalized);
-  return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] ? 0 : 1];
+  const match = VERSION_PATTERN.exec(normalizeVersion(value));
+  return {
+    core: [Number(match[1]), Number(match[2]), Number(match[3])],
+    prerelease: match[4]?.split(".") || [],
+  };
+}
+
+function comparePrereleases(left, right) {
+  if (!left.length || !right.length) {
+    if (left.length === right.length) return 0;
+    return left.length ? -1 : 1;
+  }
+  const length = Math.min(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const comparison = comparePrereleaseIdentifier(left[index], right[index]);
+    if (comparison) return comparison;
+  }
+  return left.length === right.length ? 0 : (left.length > right.length ? 1 : -1);
+}
+
+function comparePrereleaseIdentifier(left, right) {
+  if (left === right) return 0;
+  const leftNumeric = /^\d+$/.test(left);
+  const rightNumeric = /^\d+$/.test(right);
+  if (leftNumeric && rightNumeric) return Number(left) > Number(right) ? 1 : -1;
+  if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+  return left > right ? 1 : -1;
 }
 
 function validateReleaseUrl(value) {
