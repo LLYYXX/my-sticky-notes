@@ -50,7 +50,7 @@ The current release executable was checked with an isolated five-note state:
 - tray left click restores notes; the tray menu opens settings and exits;
 - a second packaged launch exits with code 0 after activating the first window;
 - release build: `My Sticky Notes_0.3.0-alpha.0_x64-setup.exe` generated;
-- five-note working set: 70.9 MB; settings-open working set: 71.1 MB.
+- five-note working set: 32.9 MB; settings-open working set: 33.1 MB.
 
 The enforced Windows runtime budgets are 150 MB for one note, 220 MB for five
 notes, and 250 MB while Settings is open. The probe measures the application
@@ -74,6 +74,12 @@ The current About page nevertheless retains compatibility with the previous
 GitHub Releases check: it validates the official latest-release response and
 offers its release page when a newer version exists. That network check has no
 installer side effects.
+
+The repository's `Tauri Build` workflow is the pre-release quality gate. It
+now runs on each `main` push and pull request for both Windows and macOS: each
+job uses the locked pnpm dependency graph, runs the frontend and Rust tests,
+builds the native bundle, and uploads it as a CI artifact. It does not create a
+GitHub Release or require any signing secret.
 
 ## macOS
 

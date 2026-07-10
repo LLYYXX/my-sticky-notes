@@ -46,9 +46,6 @@ const capabilities = JSON.parse(
 const config = JSON.parse(
   fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8"),
 );
-const ci = fs.existsSync(path.join(root, ".github/workflows/ci.yml"))
-  ? fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")
-  : "";
 const tauriBuild = fs.existsSync(path.join(root, ".github/workflows/tauri-build.yml"))
   ? fs.readFileSync(path.join(root, ".github/workflows/tauri-build.yml"), "utf8")
   : "";
@@ -105,7 +102,8 @@ const checks = [
   ["color palette exists", views.includes("palette-popover")],
   ["hidden popovers stay hidden", styles.includes("[hidden]")],
   ["Windows and macOS bundle targets exist", JSON.stringify(config.bundle.targets) === JSON.stringify(["nsis", "dmg"])],
-  ["CI uses stable GitHub action majors", ci.includes("actions/checkout@v4") && ci.includes("actions/setup-node@v4") && tauriBuild.includes("actions/upload-artifact@v4")],
+  ["CI uses stable GitHub action majors", tauriBuild.includes("actions/checkout@v4") && tauriBuild.includes("actions/setup-node@v4") && tauriBuild.includes("actions/upload-artifact@v4")],
+  ["Tauri CI validates both supported desktop platforms", tauriBuild.includes("push:") && tauriBuild.includes("pull_request:") && tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("cargo test --locked")],
   ["Tauri build workflow uses locked pnpm install", tauriBuild.includes("corepack enable") && tauriBuild.includes("pnpm install --frozen-lockfile") && tauriBuild.includes("pnpm run tauri:build")],
   ["frontend package manager and Tauri CLI are pinned", packageJson.packageManager === "pnpm@11.7.0" && packageJson.devDependencies?.["@tauri-apps/cli"] === "2.11.4"],
   ["legacy Python release is paused", release.includes("workflow_dispatch") && release.includes("legacy Python release workflow is disabled") && !release.includes("build.ps1")],
