@@ -11,7 +11,7 @@
   "scripts": {
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "check:frontend": "node --check src/app.js && node --check src/views.js && node --check src/state.js && node --check scripts/tauri_static_check.mjs && node --check scripts/tauri_state_test.mjs && node scripts/tauri_static_check.mjs && node scripts/tauri_state_test.mjs"
+    "check:frontend": "node --check src/app.js && node --check src/views.js && node --check src/updates.js && node --check src/state.js && node --check scripts/tauri_static_check.mjs && node --check scripts/tauri_state_test.mjs && node --check scripts/tauri_update_test.mjs && node scripts/tauri_static_check.mjs && node scripts/tauri_state_test.mjs && node scripts/tauri_update_test.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.4"

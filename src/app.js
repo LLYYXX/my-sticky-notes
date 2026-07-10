@@ -9,6 +9,7 @@ import {
   toggleNoteCollapsed,
 } from "./state.js";
 import { renderNotes, renderSettings } from "./views.js";
+import { checkGithubRelease } from "./updates.js";
 
 const app = document.querySelector("#app");
 const params = new URLSearchParams(window.location.search);
@@ -20,6 +21,7 @@ const APP_VERSION = "v0.3.0-alpha.0";
 let state = normalizeState();
 let activeSettingsPage = params.get("settingsPage") === "about" ? "about" : "general";
 let updateStatus = "";
+let updateReleaseUrl = "";
 let pointerSession = null;
 let pointerEventsBound = false;
 
@@ -76,6 +78,7 @@ function render() {
       language: language(),
       tr,
       updateStatus,
+      updateReleaseUrl,
       version: APP_VERSION,
     })
     : renderNotes(state, {
@@ -192,12 +195,21 @@ function handleAction(event) {
 }
 
 async function checkForUpdate() {
-  updateStatus = tr("updateIdle");
+  updateStatus = tr("updateChecking");
+  updateReleaseUrl = "";
   render();
-  const result = await invoke("check_for_update");
-  if (result?.status === "current") updateStatus = tr("updateCurrent");
-  else if (result?.status === "available") updateStatus = tr("updateAvailable");
-  else updateStatus = tr("updateFailed");
+  try {
+    const result = await checkGithubRelease(APP_VERSION);
+    if (result.updateAvailable) {
+      updateStatus = `${tr("updateAvailable")} v${result.latestVersion}`;
+      updateReleaseUrl = result.releaseUrl;
+    } else {
+      updateStatus = tr("updateCurrent");
+    }
+  } catch (error) {
+    console.warn("GitHub release check failed", error);
+    updateStatus = tr("updateFailed");
+  }
   render();
 }
 

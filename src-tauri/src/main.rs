@@ -1,3 +1,5 @@
+mod single_instance;
+
 use serde::{Deserialize, Serialize};
 use std::{env, fs, path::PathBuf};
 use tauri::{
@@ -178,10 +180,7 @@ fn configured_data_dir() -> Option<PathBuf> {
 }
 
 fn show_main_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+    single_instance::focus_main_window(app);
 }
 
 fn show_settings_window(app: &AppHandle) -> Result<(), String> {
@@ -336,7 +335,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-pub fn run() {
+pub fn run(instance: single_instance::InstanceGuard) {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
@@ -344,6 +343,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            single_instance::begin_listening(instance, app.handle().clone());
             build_tray(app.handle())?;
             if let Some(window) = app.handle().get_webview_window("main") {
                 let _ = window.set_skip_taskbar(true);
@@ -368,7 +368,11 @@ pub fn run() {
 }
 
 fn main() {
-    run();
+    match single_instance::acquire() {
+        Ok(single_instance::AcquireResult::Primary(instance)) => run(instance),
+        Ok(single_instance::AcquireResult::Existing) => {}
+        Err(error) => eprintln!("Unable to start My Sticky Notes: {error}"),
+    }
 }
 
 #[cfg(test)]

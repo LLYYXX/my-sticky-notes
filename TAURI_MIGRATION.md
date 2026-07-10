@@ -12,6 +12,12 @@ after the tray menu asks for it. Closing that window destroys the settings
 webview. This isolates taskbar behaviour and keeps settings-only memory out of
 the idle path.
 
+Before the Tauri shell is constructed, a tiny standard-library loopback
+listener reserves the app's single-instance endpoint. A duplicate launch sends
+an activation handshake to the first process, which shows and focuses the note
+window; the duplicate exits without creating another webview. This avoids a
+second renderer and adds no runtime dependency.
+
 Responsibilities are separated as follows:
 
 - `src/state.js`: pure persisted state and viewport-safe note normalization.
@@ -20,6 +26,8 @@ Responsibilities are separated as follows:
   bridge.
 - `src-tauri/src/main.rs`: state file, tray, window lifetime, work-area/DPI
   placement, topmost state, autostart, and packaging integration.
+- `src-tauri/src/single_instance.rs`: cross-platform local activation handshake
+  and duplicate-launch guard.
 
 ## DPI and resolution rule
 
@@ -40,6 +48,7 @@ The current release executable was checked with an isolated five-note state:
 - note host: `toolWindow=true`, `appWindow=false`;
 - settings: separately created `appWindow=true`, `toolWindow=false`;
 - tray left click restores notes; the tray menu opens settings and exits;
+- a second packaged launch exits with code 0 after activating the first window;
 - release build: `My Sticky Notes_0.3.0-alpha.0_x64-setup.exe` generated;
 - five-note working set: 70.9 MB; settings-open working set: 71.1 MB.
 
@@ -60,6 +69,11 @@ installer verification.
 
 This is intentionally not replaced with an unsigned download-and-execute
 fallback.
+
+The current About page nevertheless retains compatibility with the previous
+GitHub Releases check: it validates the official latest-release response and
+offers its release page when a newer version exists. That network check has no
+installer side effects.
 
 ## macOS
 

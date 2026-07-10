@@ -8,6 +8,7 @@ const requiredFiles = [
   "src/index.html",
   "src/app.js",
   "src/views.js",
+  "src/updates.js",
   "src/state.js",
   "src/styles.css",
   "src/assets/icons/add.png",
@@ -19,7 +20,10 @@ const requiredFiles = [
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/default.json",
   "src-tauri/src/main.rs",
+  "src-tauri/src/single_instance.rs",
   "scripts/tauri_runtime_probe.py",
+  "scripts/tauri_single_instance_probe.py",
+  "scripts/tauri_update_test.mjs",
 ];
 
 for (const relative of requiredFiles) {
@@ -30,9 +34,11 @@ for (const relative of requiredFiles) {
 
 const app = fs.readFileSync(path.join(root, "src/app.js"), "utf8");
 const views = fs.readFileSync(path.join(root, "src/views.js"), "utf8");
+const updates = fs.readFileSync(path.join(root, "src/updates.js"), "utf8");
 const state = fs.readFileSync(path.join(root, "src/state.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "src/styles.css"), "utf8");
 const rust = fs.readFileSync(path.join(root, "src-tauri/src/main.rs"), "utf8");
+const singleInstance = fs.readFileSync(path.join(root, "src-tauri/src/single_instance.rs"), "utf8");
 const cargoToml = fs.readFileSync(path.join(root, "src-tauri/Cargo.toml"), "utf8");
 const capabilities = JSON.parse(
   fs.readFileSync(path.join(root, "src-tauri/capabilities/default.json"), "utf8"),
@@ -51,6 +57,8 @@ const release = fs.existsSync(path.join(root, ".github/workflows/release.yml"))
   : "";
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const runtimeProbe = fs.readFileSync(path.join(root, "scripts/tauri_runtime_probe.py"), "utf8");
+const singleInstanceProbe = fs.readFileSync(path.join(root, "scripts/tauri_single_instance_probe.py"), "utf8");
+const updateTest = fs.readFileSync(path.join(root, "scripts/tauri_update_test.mjs"), "utf8");
 const noteChromeOrder = [
   'data-action="new-from-note"',
   'data-action="delete-note"',
@@ -88,6 +96,9 @@ const checks = [
   ["tray is implemented once in Rust", !('trayIcon' in config.app) && rust.includes("TrayIconBuilder::new()")],
   ["tray left click restores notes", rust.includes(".show_menu_on_left_click(false)") && rust.includes("MouseButton::Left") && rust.includes("show_main_window(tray.app_handle())")],
   ["tray opens the independent settings window", rust.includes('"settings" =>') && rust.includes("show_settings_window(app)")],
+  ["single-instance guard is owned before the Tauri shell", rust.includes("single_instance::acquire()") && rust.includes("single_instance::begin_listening") && singleInstance.includes("TcpListener::bind") && singleInstance.includes("focus_main_window")],
+  ["single-instance probe asserts the duplicate-launch symptom", singleInstanceProbe.includes("second.poll() is not None") && singleInstanceProbe.includes("firstWindowsAfterDuplicate")],
+  ["GitHub release checks retain the legacy update source", updates.includes("api.github.com/repos/LLYYXX/my-sticky-notes/releases/latest") && updates.includes("validateReleaseUrl") && app.includes("checkGithubRelease") && views.includes("openRelease") && updateTest.includes("invalid release URL")],
   ["runtime probe covers settings, autostart, and runtime budgets", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("settingsWindow") && runtimeProbe.includes("working_set_mb") && runtimeProbe.includes("assert_memory_budget")],
   ["Tauri v2 capability file covers both views", capabilities.identifier === "default" && capabilities.windows.includes("main") && capabilities.windows.includes("settings") && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
   ["settings page exists without a note settings section", views.includes("settings-window") && !views.includes("stayLightweight")],

@@ -103,7 +103,7 @@ function renderNote(note, index, { language, tr, previewCollapsed, previewPalett
   `;
 }
 
-export function renderSettings(state, { activePage, language, tr, updateStatus, version }) {
+export function renderSettings(state, { activePage, language, tr, updateStatus, updateReleaseUrl, version }) {
   const status = updateStatus || tr("updateIdle");
   return `
     <main class="settings-window" aria-label="${escapeHtml(tr("settings"))}">
@@ -119,7 +119,7 @@ export function renderSettings(state, { activePage, language, tr, updateStatus, 
       </header>
       <section class="settings-content">
         ${activePage === "about"
-          ? renderAbout({ tr, status, version })
+          ? renderAbout({ tr, status, updateReleaseUrl, version })
           : renderGeneral(state, { language, tr })}
       </section>
     </main>
@@ -156,7 +156,7 @@ function renderGeneral(state, { language, tr }) {
   `;
 }
 
-function renderAbout({ tr, status, version }) {
+function renderAbout({ tr, status, updateReleaseUrl, version }) {
   return `
     <section class="settings-panel">
       <h1>${escapeHtml(tr("about"))}</h1>
@@ -171,7 +171,9 @@ function renderAbout({ tr, status, version }) {
           <strong>${escapeHtml(tr("update"))}</strong>
           <p data-update-status>${escapeHtml(status)}</p>
         </div>
-        <button class="primary" data-action="check-update">${escapeHtml(tr("checkNow"))}</button>
+        ${updateReleaseUrl
+          ? `<a class="primary" href="${escapeHtml(updateReleaseUrl)}" target="_blank" rel="noopener">${escapeHtml(tr("openRelease"))}</a>`
+          : `<button class="primary" data-action="check-update">${escapeHtml(tr("checkNow"))}</button>`}
       </div>
       <p class="source-link"><a href="https://github.com/LLYYXX/my-sticky-notes">github.com/LLYYXX/my-sticky-notes</a></p>
     </section>
