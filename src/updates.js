@@ -1,6 +1,6 @@
-export const RELEASES_API_URL = "https://api.github.com/repos/LLYYXX/my-sticky-notes/releases/latest";
-const PROJECT_RELEASE_PREFIX = "/LLYYXX/my-sticky-notes/releases/";
+export const RELEASES_API_URL = "https://api.github.com/repos/LLYYXX/my-sticky-notes/releases?per_page=20";
 const MAX_RESPONSE_BYTES = 1_000_000;
+const MAX_RELEASE_ASSETS = 50;
 const VERSION_PATTERN = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
 export async function checkGithubRelease(currentVersion, fetchImpl = globalThis.fetch) {
@@ -16,14 +16,41 @@ export async function checkGithubRelease(currentVersion, fetchImpl = globalThis.
   if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
     throw new Error("release response is too large");
   }
-  const payload = await response.json();
-  const latestVersion = normalizeVersion(payload?.tag_name);
-  const releaseUrl = validateReleaseUrl(payload?.html_url);
+  const release = selectNewestRelease(await response.json());
+  const releaseTag = String(release.tag_name || "").trim();
+  const latestVersion = normalizeVersion(releaseTag);
   return {
     latestVersion,
-    releaseUrl,
+    releaseTag,
+    assetNames: normalizeReleaseAssets(release.assets),
     updateAvailable: compareVersions(latestVersion, currentVersion) > 0,
   };
+}
+
+function selectNewestRelease(value) {
+  if (!Array.isArray(value)) throw new Error("invalid release list");
+  const candidates = value
+    .filter((release) => release && release.draft !== true)
+    .flatMap((release) => {
+      try {
+        return [{ release, version: normalizeVersion(release.tag_name) }];
+      } catch {
+        return [];
+      }
+    });
+  if (!candidates.length) throw new Error("no published release available");
+  return candidates.reduce((newest, candidate) => (
+    compareVersions(candidate.version, newest.version) > 0 ? candidate : newest
+  )).release;
+}
+
+function normalizeReleaseAssets(value) {
+  if (!Array.isArray(value) || value.length > MAX_RELEASE_ASSETS) {
+    throw new Error("invalid release assets");
+  }
+  return value
+    .map((asset) => String(asset?.name || "").trim())
+    .filter(Boolean);
 }
 
 export function compareVersions(candidate, current) {
@@ -69,16 +96,4 @@ function comparePrereleaseIdentifier(left, right) {
   if (leftNumeric && rightNumeric) return Number(left) > Number(right) ? 1 : -1;
   if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
   return left > right ? 1 : -1;
-}
-
-function validateReleaseUrl(value) {
-  const url = new URL(String(value || ""));
-  if (
-    url.protocol !== "https:"
-    || url.hostname.toLowerCase() !== "github.com"
-    || !url.pathname.startsWith(PROJECT_RELEASE_PREFIX)
-  ) {
-    throw new Error("invalid release URL");
-  }
-  return url.toString();
 }

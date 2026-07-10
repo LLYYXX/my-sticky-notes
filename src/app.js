@@ -16,12 +16,12 @@ const params = new URLSearchParams(window.location.search);
 const isSettingsWindow = params.get("settings") === "1";
 const previewCollapsed = params.get("collapsed") === "1";
 const previewPalette = params.get("palette") === "1";
-const APP_VERSION = "v0.3.0-alpha.0";
+const APP_VERSION = "v0.3.0-alpha.1";
 
 let state = normalizeState();
 let activeSettingsPage = params.get("settingsPage") === "about" ? "about" : "general";
 let updateStatus = "";
-let updateReleaseUrl = "";
+let updateInFlight = false;
 let pointerSession = null;
 let pointerEventsBound = false;
 
@@ -78,7 +78,7 @@ function render() {
       language: language(),
       tr,
       updateStatus,
-      updateReleaseUrl,
+      updateInFlight,
       version: APP_VERSION,
     })
     : renderNotes(state, {
@@ -195,22 +195,32 @@ function handleAction(event) {
 }
 
 async function checkForUpdate() {
+  if (updateInFlight) return;
+  updateInFlight = true;
   updateStatus = tr("updateChecking");
-  updateReleaseUrl = "";
   render();
   try {
     const result = await checkGithubRelease(APP_VERSION);
     if (result.updateAvailable) {
-      updateStatus = `${tr("updateAvailable")} v${result.latestVersion}`;
-      updateReleaseUrl = result.releaseUrl;
+      updateStatus = `${tr("updateDownloading")} v${result.latestVersion}`;
+      render();
+      const started = await invoke("download_and_install_update", {
+        request: {
+          tag: result.releaseTag,
+          assetNames: result.assetNames,
+        },
+      });
+      updateStatus = started === true ? tr("updateInstalling") : tr("updateInstallFailed");
     } else {
       updateStatus = tr("updateCurrent");
     }
   } catch (error) {
     console.warn("GitHub release check failed", error);
     updateStatus = tr("updateFailed");
+  } finally {
+    updateInFlight = false;
+    render();
   }
-  render();
 }
 
 function startDrag(event) {

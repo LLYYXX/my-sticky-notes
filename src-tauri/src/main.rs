@@ -1,3 +1,4 @@
+mod direct_update;
 mod single_instance;
 
 use serde::{Deserialize, Serialize};
@@ -398,7 +399,8 @@ pub fn run(instance: single_instance::InstanceGuard) {
             save_state,
             is_open_at_login_enabled,
             set_open_at_login,
-            set_always_on_top
+            set_always_on_top,
+            direct_update::download_and_install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running My Sticky Notes");

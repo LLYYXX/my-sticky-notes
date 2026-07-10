@@ -48,14 +48,14 @@ python scripts\tauri_runtime_probe.py --skip-autostart
 Windows NSIS 安装包会生成在：
 
 ```text
-src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.0_x64-setup.exe
+src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.1_x64-setup.exe
 ```
 
-已在 Windows 打包程序上验证：五张便签、托盘恢复、独立设置窗口、任务栏隔离、右上角工作区定位、重复启动退出和运行时内存预算。最近一次隔离探针中，五张便签和设置打开均约为 33 MB 工作集；预算分别为 220 MB 与 250 MB。
+已在 Windows 打包程序上验证：五张便签、托盘恢复、独立设置窗口、任务栏隔离、右上角工作区定位、重复启动退出和运行时内存预算。四次隔离探针中，五张便签为 32.5–72.2 MB 工作集，设置打开为 33.2–72.4 MB；预算分别为 220 MB 与 250 MB。
 
 ## 自动更新
 
-“检查更新”已兼容旧版的 GitHub Releases 来源：它会检查最新正式版本、验证仓库发布链接并在有新版时提供对应发布页。安全的“自动下载并安装”仍需要 Tauri 更新签名公钥和 GitHub Actions 私钥；在签名和首个 `latest.json` 发布文件配置完成前，应用不会下载未验证的安装包。详见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
+“检查更新”只在用户点击时访问固定的 GitHub Releases 来源。发现新版后，Windows 会下载对应的 NSIS 安装器，等待便签进程退出后静默启动安装；macOS 会下载并打开对应 DMG，系统可能仍要求确认或将应用拖入 Applications。该路径面向本项目的两位可信用户，不使用签名更新服务、后台轮询或额外常驻进程。详见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
 
 ## 跨平台
 

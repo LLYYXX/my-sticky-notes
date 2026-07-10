@@ -49,38 +49,49 @@ The current release executable was checked with an isolated five-note state:
 - settings: separately created `appWindow=true`, `toolWindow=false`;
 - tray left click restores notes; the tray menu opens settings and exits;
 - a second packaged launch exits with code 0 after activating the first window;
-- release build: `My Sticky Notes_0.3.0-alpha.0_x64-setup.exe` generated;
-- five-note working set: approximately 33 MB; settings-open working set:
-  approximately 33 MB.
+- release build: `My Sticky Notes_0.3.0-alpha.1_x64-setup.exe` generated;
+- four isolated five-note launches: 32.5–72.2 MB working set; with Settings
+  open: 33.2–72.4 MB. Windows/WebView working-set residency is bimodal on this
+  machine, so this range is more representative than one cold-start sample.
 
 The enforced Windows runtime budgets are 150 MB for one note, 220 MB for five
 notes, and 250 MB while Settings is open. The probe measures the application
 process working set; shared OS WebView resources should also be inspected with
 platform profiling before declaring a production performance SLA.
 
-## Remaining release prerequisite: signed updater
+## Direct update for the trusted two-user distribution
 
-Tauri's official updater verifies signed artifacts before installing them. To
-enable the requested automatic GitHub Release installation, the release owner
-must provide a persistent updater signing key, add its private part to GitHub
-Actions as `TAURI_SIGNING_PRIVATE_KEY`, and publish the matching signed
-`latest.json` plus updater artifacts. The public key can then be committed in
-`tauri.conf.json` and the updater plugin can be enabled without weakening
-installer verification.
+The requested distribution model deliberately uses a small direct updater
+instead of Tauri's signed updater plugin. It is inactive until the user presses
+Check update. The renderer reads the latest release metadata from the fixed
+`LLYYXX/my-sticky-notes` GitHub repository and passes only its tag plus asset
+names to the native host. The host accepts only the expected product name,
+current CPU architecture, and platform installer extension; it constructs the
+canonical HTTPS GitHub release URL itself.
 
-This is intentionally not replaced with an unsigned download-and-execute
-fallback.
+On Windows the host downloads the selected NSIS installer into the system temp
+directory. A short-lived PowerShell launcher waits for the parent process to
+exit, starts the installer with `/S`, waits for installation to finish, deletes
+the temporary installer and itself, then relaunches the app. This is the same
+important lifecycle separation used by standalone updaters: the process that
+replaces application files is not the process being replaced. The app adds no
+background update check, persistent helper executable, or updater dependency.
 
-The current About page nevertheless retains compatibility with the previous
-GitHub Releases check: it validates the official latest-release response and
-offers its release page when a newer version exists. That network check has no
-installer side effects.
+On macOS the host downloads and opens the matching DMG. macOS may still require
+the user to approve the app or copy it into Applications; transparent in-place
+replacement is intentionally not claimed for an unsigned DMG.
 
 The repository's `Tauri Build` workflow is the pre-release quality gate. It
 now runs on each `main` push and pull request for both Windows and macOS: each
 job uses the locked pnpm dependency graph, runs the frontend and Rust tests,
 builds the native bundle, and uploads it as a CI artifact. It does not create a
 GitHub Release or require any signing secret.
+
+`Release` is deliberately manual. It validates the matching JavaScript and
+Tauri versions, builds the same Windows and macOS native bundles, and uploads
+them to the GitHub Release tagged `v<package-version>`. This provides the exact
+release assets consumed by the direct updater without creating releases on
+ordinary pushes.
 
 ## macOS
 

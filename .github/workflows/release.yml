@@ -3,11 +3,75 @@ name: Release
 on:
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
 jobs:
-  paused:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact-name: my-sticky-notes-release-windows
+          - os: macos-latest
+            artifact-name: my-sticky-notes-release-macos
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
-      - name: Release is paused during Tauri migration
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Enable pnpm
+        run: corepack enable
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate release version
+        run: node -e "const fs=require('fs');const pkg=require('./package.json');const config=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));if(pkg.version!==config.version)throw new Error('package and Tauri versions must match')"
+      - name: Run checks
+        run: pnpm run check:frontend
+      - name: Run Rust unit tests
+        working-directory: src-tauri
+        run: cargo test --locked
+      - name: Build release bundle
+        run: pnpm run tauri:build
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: src-tauri/target/release/bundle/**
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve release tag
+        id: version
+        run: echo "tag=v$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+      - name: Download release bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: my-sticky-notes-release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create and upload GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          echo "The legacy Python release workflow is disabled."
-          echo "Use the manual Tauri Build workflow for validation until the Tauri app is fully verified."
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "My Sticky Notes $TAG" --generate-notes
+          fi
+          mapfile -d '' assets < <(find release-assets -type f -print0)
+          test "${#assets[@]}" -gt 0
+          gh release upload "$TAG" "${assets[@]}" --clobber
+          gh release edit "$TAG" --draft=false

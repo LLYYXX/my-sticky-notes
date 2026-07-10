@@ -20,6 +20,7 @@ const requiredFiles = [
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/default.json",
   "src-tauri/src/main.rs",
+  "src-tauri/src/direct_update.rs",
   "src-tauri/src/single_instance.rs",
   "scripts/tauri_runtime_probe.py",
   "scripts/tauri_single_instance_probe.py",
@@ -38,6 +39,7 @@ const updates = fs.readFileSync(path.join(root, "src/updates.js"), "utf8");
 const state = fs.readFileSync(path.join(root, "src/state.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "src/styles.css"), "utf8");
 const rust = fs.readFileSync(path.join(root, "src-tauri/src/main.rs"), "utf8");
+const directUpdate = fs.readFileSync(path.join(root, "src-tauri/src/direct_update.rs"), "utf8");
 const singleInstance = fs.readFileSync(path.join(root, "src-tauri/src/single_instance.rs"), "utf8");
 const cargoToml = fs.readFileSync(path.join(root, "src-tauri/Cargo.toml"), "utf8");
 const capabilities = JSON.parse(
@@ -96,7 +98,9 @@ const checks = [
   ["tray opens the independent settings window", rust.includes('"settings" =>') && rust.includes("show_settings_window(app)")],
   ["single-instance guard is owned before the Tauri shell", rust.includes("single_instance::acquire()") && rust.includes("single_instance::begin_listening") && singleInstance.includes("TcpListener::bind") && singleInstance.includes("focus_main_window")],
   ["single-instance probe asserts the duplicate-launch symptom", singleInstanceProbe.includes("second.poll() is not None") && singleInstanceProbe.includes("firstWindowsAfterDuplicate")],
-  ["GitHub release checks retain the legacy update source", updates.includes("api.github.com/repos/LLYYXX/my-sticky-notes/releases/latest") && updates.includes("validateReleaseUrl") && app.includes("checkGithubRelease") && views.includes("openRelease") && updateTest.includes("invalid release URL")],
+  ["GitHub release checks include prerelease assets", updates.includes("releases?per_page=20") && updates.includes("selectNewestRelease") && updates.includes("assetNames") && app.includes("checkGithubRelease") && updateTest.includes("no published release available")],
+  ["direct updates are fixed-source and parent-exit safe", rust.includes("direct_update::download_and_install_update") && directUpdate.includes("RELEASE_DOWNLOAD_BASE") && directUpdate.includes("--proto") && directUpdate.includes("WaitForExit") && directUpdate.includes("-ArgumentList @('/S')") && directUpdate.includes("$installer.WaitForExit()") && directUpdate.includes("asset_matches_current_platform")],
+  ["direct updates add no signed-updater runtime", !cargoToml.includes("tauri-plugin-updater") && !directUpdate.includes("tauri_plugin_updater")],
   ["runtime probe covers settings, autostart, and runtime budgets", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("settingsWindow") && runtimeProbe.includes("working_set_mb") && runtimeProbe.includes("assert_memory_budget")],
   ["Tauri v2 capability file covers both views", capabilities.identifier === "default" && capabilities.windows.includes("main") && capabilities.windows.includes("settings") && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
   ["settings page exists without a note settings section", views.includes("settings-window") && !views.includes("stayLightweight")],
@@ -107,7 +111,7 @@ const checks = [
   ["Tauri CI validates both supported desktop platforms", tauriBuild.includes("push:") && tauriBuild.includes("pull_request:") && tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("cargo test --locked")],
   ["Tauri build workflow uses locked pnpm install", tauriBuild.includes("corepack enable") && tauriBuild.includes("pnpm install --frozen-lockfile") && tauriBuild.includes("pnpm run tauri:build")],
   ["frontend package manager and Tauri CLI are pinned", packageJson.packageManager === "pnpm@11.7.0" && packageJson.devDependencies?.["@tauri-apps/cli"] === "2.11.4"],
-  ["legacy Python release is paused", release.includes("workflow_dispatch") && release.includes("legacy Python release workflow is disabled") && !release.includes("build.ps1")],
+  ["manual release publishes both native bundles", release.includes("workflow_dispatch") && release.includes("windows-latest") && release.includes("macos-latest") && release.includes("cargo test --locked") && release.includes("gh release upload") && !release.includes("build.ps1")],
 ];
 
 const failures = checks.filter(([, passed]) => !passed).map(([name]) => name);
