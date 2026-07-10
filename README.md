@@ -1,111 +1,65 @@
 # My Sticky Notes
 
-一个本地优先、Todo 导向的极简桌面便利贴。项目当前正在从 Python/Tkinter
-迁移到 Tauri/Rust，目标是同时支持 Windows 和 macOS，并保持轻量、低打扰的桌面体验。
+一个本地优先、Todo 导向的极简桌面便签，使用 Tauri 2 / Rust 实现 Windows 与 macOS 桌面壳层。
 
-> 当前 Tauri 版本仍处于迁移验证阶段。前端状态、静态契约、旧 Python 回归测试、
-> `cargo test`、Windows `tauri build`、真实 GUI 便签/设置页截图和默认右上角定位
-> 已通过；托盘菜单、自启和 macOS DMG 仍需进一步验证。
+## 当前实现
 
-迁移细节和当前阻塞项见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
+- 多张无标题便签；每张可独立使用九种主题色。
+- Todo 支持新增、编辑、完成、删除和长文本换行。
+- `＋ / 删除 / 置顶 / 收起` 位于便签标题栏；收起只保留长条和按钮。
+- 点击左侧颜色圆点展开九色面板；右下角可调整便签尺寸。
+- 默认按显示器工作区的右上角定位，尺寸按系统 DPI 计算，不依赖单台电脑的固定像素坐标。
+- 便签窗口始终不出现在任务栏；托盘左键恢复便签，菜单可打开设置或退出。
+- 设置是按需创建的独立原生窗口，因此只有打开设置时才会出现任务栏图标。
+- 设置提供登录后启动与中英文切换；关于页显示当前版本与开源地址。
+- 数据只保存在本机 JSON 文件中，不依赖服务端。
 
-## 当前 Tauri 目标
-
-- 多张无标题便签，单窗口承载，避免每张便签一个渲染进程。
-- 默认新便签按当前 viewport 出现在右上角，不依赖固定分辨率坐标。
-- 每张便签可单独选择九种颜色。
-- Todo 支持添加、编辑、完成、删除；长条目在边缘自动换行。
-- `-` 按钮语义为“收起”：只隐藏待办内容，保留顶部长条和操作按钮。
-- 置顶状态同步到原生窗口 topmost 行为。
-- 设置页按需打开；设置页打开时显示任务栏入口，关闭后恢复轻量常驻。
-- 托盘由 Rust 单一来源创建，托盘可恢复便签或打开设置。
-- 登录后自动启动已接入 Tauri autostart 插件。
-- 打包目标保留 Windows NSIS 和 macOS DMG。
-
-## 目录
+## 运行时结构
 
 ```text
-src/                 Tauri 前端，原生 HTML/CSS/JS
-src-tauri/           Tauri/Rust shell、托盘、状态、窗口命令、打包配置
-sticky_notes/        旧 Python/Tkinter 实现，迁移期间保留回归测试
-scripts/             图标生成、静态契约和状态测试脚本
-tests/               旧 Python 版本回归测试
+main notes webview      仅承载全部便签，透明、无任务栏入口
+settings webview        从托盘按需创建，关闭即销毁
+Rust host               托盘、窗口定位、置顶、自启、状态读写、打包
+plain HTML/CSS/JS       无框架运行时与额外 UI 依赖
 ```
 
-## 开发环境
+这避免了“每张便签一个 WebView”的内存线性增长，同时也避免设置页一直常驻。
 
-Tauri 路线需要：
+## 开发
 
-- Node.js 18 或更新版本；
-- pnpm；
-- Rust stable 与 Cargo；
-- 对应平台的 Tauri 系统依赖。
-
-## 可运行检查
+要求：Node.js 20+、pnpm 11、Rust stable，以及平台对应的 Tauri 系统依赖。
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm run check:frontend
 cargo check --manifest-path src-tauri\Cargo.toml
 cargo test --manifest-path src-tauri\Cargo.toml
-python -m unittest discover -s tests
-git diff --check
+pnpm run tauri:dev
 ```
 
-`pnpm run check:frontend` 会执行：
-
-- `src/app.js` / `src/state.js` 语法检查；
-- Tauri 静态契约检查；
-- 前端状态模型测试。
-
-## 完整 Tauri 验证
+## 验证与打包
 
 ```powershell
-pnpm run tauri:dev
 pnpm run tauri:build
-python scripts\tauri_runtime_probe.py
+python scripts\tauri_runtime_probe.py --skip-autostart
 ```
 
-当前 Windows 本地已成功生成：
+Windows NSIS 安装包会生成在：
 
 ```text
 src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.0_x64-setup.exe
 ```
 
-已在 Windows 本地实际检查：
+已在 Windows 打包程序上验证：五张便签、托盘恢复、独立设置窗口、任务栏隔离、右上角工作区定位和运行时内存预算。最近一次隔离探针中，五张便签为 70.9 MB 工作集，设置打开为 71.1 MB；预算分别为 220 MB 与 250 MB。
 
-- 首张便签按当前工作区右上角定位；
-- clean state 下默认便签完整可见；
-- `-` 只收起内容并保留顶部长条与操作按钮；
-- 设置页可从运行时顶栏打开；
-- 置顶按钮会触发 Windows 原生 `WS_EX_TOPMOST`；
-- 默认便签窗口为 `toolWindow=true/appWindow=false`，设置页打开后切换为 `toolWindow=false/appWindow=true`；
-- Windows NSIS 安装包可生成。
+## 自动更新
 
-还需要实际检查：
+界面已保留更新入口，但安全的“下载并安装”需要 Tauri 更新签名公钥和 GitHub Actions 私钥；在签名和首个 `latest.json` 发布文件配置完成前，更新入口会报告无法检查，而不会下载未验证的安装包。详见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
 
-- 运行 `scripts\tauri_runtime_probe.py`，确认托盘菜单恢复/设置/退出和自启注册表开关；
-- macOS DMG 是否能正常产出。
+## 跨平台
 
-## CI / Release
-
-- `CI` 会运行前端 Tauri 静态契约和旧 Python 回归测试。
-- `Tauri Build` 是手动工作流，使用 `pnpm install --frozen-lockfile` 在
-  GitHub Actions 上验证 Windows/macOS Tauri 打包。
-- `Release` 暂停自动 tag 发布；旧 Python 发布流已禁用，避免迁移期间误发旧包。
-
-## 旧 Python 版本
-
-迁移期间仍保留旧入口用于对照和回归：
-
-```powershell
-python app.py
-```
-
-旧版本的安装包、更新器和 Windows 专属行为不再是当前主线目标。新的发布路线以
-Tauri 打包为准。
+`tauri.conf.json` 同时声明 Windows `nsis` 和 macOS `dmg` 打包目标。Windows 已完成真实运行时验证；macOS 仍需在真实 Mac 或 GitHub 的 macOS runner 上完成 DMG 与托盘/自启行为验证。
 
 ## 许可
 
-项目使用 [MIT License](LICENSE)。图标资源的第三方许可见
-[assets/icons/LICENSE-lucide.txt](assets/icons/LICENSE-lucide.txt)。
+[MIT License](LICENSE)。便签图标来自 Lucide，见 [assets/icons/LICENSE-lucide.txt](assets/icons/LICENSE-lucide.txt)。

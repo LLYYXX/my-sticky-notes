@@ -1,135 +1,68 @@
-# Tauri Migration
+# Tauri migration status
 
-This project is being rewritten from the original Python/Tkinter implementation
-to a Tauri-based desktop app for Windows and macOS.
+## Architecture decision
 
-## Target architecture
+The migration keeps one transparent Tauri webview for all notes. It is the only
+always-running renderer and is marked as a tool window so it stays out of the
+taskbar. Each note is a lightweight DOM component, not a second process or a
+second webview.
 
-- One Tauri application window hosts the desktop canvas, all note components,
-  and the Settings surface.
-- Notes are frontend components, not one WebView per note. This keeps the
-  runtime closer to the lightweight target and avoids multiplying renderer
-  memory as note count grows.
-- The native host window is positioned against the current monitor work area,
-  and default note placement is computed in the frontend from the current
-  viewport width. This avoids relying on a hard-coded `x=760` that only works
-  for one window size.
-- Legacy or persisted note coordinates are clamped back into the current
-  viewport so old state cannot leave a note off-screen after a resolution or
-  DPI change.
-- The Rust state layer deliberately preserves missing layout fields as empty
-  values. It should not backfill screen-dependent defaults; otherwise legacy or
-  partial state would bypass the viewport-relative placement logic.
-- The note `-` action is now `collapsed`: it hides the todo body and keeps the
-  top bar plus action buttons visible. It does not minimize to the taskbar.
-- State remains local JSON and is exposed through Tauri commands:
-  `load_state` and `save_state`.
-- The Rust state loader can fall back to the legacy Python data path
-  `%LOCALAPPDATA%\MyStickyNotes\state.json` and accepts the legacy
-  `open_at_login` setting name.
-- The app creates the tray icon only from Rust. The static Tauri config does
-  not also declare a second tray icon.
-- The main window starts with `skipTaskbar: true`. Opening Settings asks Rust
-  to show the taskbar entry; closing Settings hides it again.
-- On Windows, Rust also flips the native extended window style between
-  `WS_EX_TOOLWINDOW` for note mode and `WS_EX_APPWINDOW` for Settings mode so
-  the taskbar behavior does not depend only on Tauri's high-level
-  `skip_taskbar` call.
-- Pinned notes are synced to the host window through a Tauri command so the
-  native topmost behavior can be checked once Cargo is available.
-- The login-start setting now calls the Tauri autostart plugin through Rust
-  commands instead of only updating local JSON.
-- Settings are implemented in HTML/CSS so the app can move toward the cleaner
-  Stretchly-style preference surface without fighting Tk layout limits.
+Settings is deliberately different: Rust creates its normal native window only
+after the tray menu asks for it. Closing that window destroys the settings
+webview. This isolates taskbar behaviour and keeps settings-only memory out of
+the idle path.
 
-## Current implementation status
+Responsibilities are separated as follows:
 
-Implemented in this checkpoint:
+- `src/state.js`: pure persisted state and viewport-safe note normalization.
+- `src/views.js`: note and settings rendering only.
+- `src/app.js`: interaction bindings, persistence boundary, and native command
+  bridge.
+- `src-tauri/src/main.rs`: state file, tray, window lifetime, work-area/DPI
+  placement, topmost state, autostart, and packaging integration.
 
-- `src/index.html`, `src/app.js`, and `src/styles.css` provide the first Tauri
-  frontend.
-- `src-tauri/src/main.rs` provides state load/save commands and a basic tray
-  menu, plus taskbar visibility, topmost-window, and autostart commands.
-- `src-tauri/tauri.conf.json` declares Windows `nsis` and macOS `dmg` bundle
-  targets.
-- `src-tauri/capabilities/default.json` declares the default Tauri v2 desktop
-  permissions used by the shell.
-- `src-tauri/icons/` contains generated Tauri bundle icons for Windows and
-  macOS, produced by `scripts/build_app_icon.py`.
-- `scripts/tauri_static_check.mjs` verifies that the Tauri scaffold contains
-  the expected collapse behavior, settings surface, persisted state wiring,
-  single Rust tray source, settings-driven taskbar visibility, topmost command
-  wiring, native autostart wiring, capabilities file, bundle icons, stable
-  GitHub Actions versions, and Win/mac bundle targets.
-- `scripts/tauri_state_test.mjs` verifies the pure frontend state model,
-  including viewport-relative default placement, off-screen legacy coordinate
-  clamping, legacy `open_at_login` migration, and persisted collapse state.
-- `scripts/tauri_runtime_probe.py` is a Windows runtime probe for the packaged
-  app. It launches the release exe, checks note/settings taskbar styles, sends
-  tray-window commands for show/settings/quit, and verifies autostart by
-  toggling the Settings switch against HKCU `Run` entries before cleaning up.
-- The push CI no longer builds the legacy Python installer. A manual
-  `Tauri Build` workflow is available for Windows/macOS bundle validation. It
-  uses `pnpm install --frozen-lockfile` so CI matches the checked-in
-  `pnpm-lock.yaml`.
-- The tag-triggered legacy Python `Release` workflow is paused during the Tauri
-  migration so tags do not publish the old installer path by accident.
-- Local Windows verification now passes:
-  - `cargo check`
-  - `cargo test`
-  - `pnpm run check:frontend`
-  - `pnpm run tauri:build`
-  - DPI-aware runtime capture of the notes screen
-  - DPI-aware runtime capture of the Settings screen
-  - DPI-aware runtime capture of the collapsed-note state
-  - Windows `WS_EX_TOPMOST` verification after clicking the pin button
-  - Windows taskbar-style verification: note mode reports
-    `toolWindow=true/appWindow=false`; Settings mode reports
-    `toolWindow=false/appWindow=true`
-- The Windows NSIS bundle has been generated at
-  `src-tauri/target/release/bundle/nsis/My Sticky Notes_0.3.0-alpha.0_x64-setup.exe`.
+## DPI and resolution rule
 
-Not complete yet:
+The note host uses the current monitor work area and scale factor. Rust first
+caps its logical width and height to the available work area, then positions
+the resulting physical window at the top right. The browser computes default
+note coordinates from its resulting viewport. No fixed monitor-resolution
+coordinate is restored from persisted state.
 
-- macOS DMG still needs to be verified on `macos-latest` or a real Mac.
-- Update installation and deeper window behavior still need to be reimplemented
-  with Tauri plugins or platform code.
-- Native autostart is wired to the Tauri autostart plugin, but it still needs
-  a completed `scripts/tauri_runtime_probe.py` run in a GUI-capable Windows
-  session.
-- Tray menu actions are covered by `scripts/tauri_runtime_probe.py`, but that
-  probe still needs a completed GUI-capable run after the latest script update.
+State version 8 does not restore the obsolete note `height` field. Notes grow
+with their Todo content by default. A `bodyHeight` is persisted only after the
+user drags the lower-right resize grip.
 
-## Required local toolchain
+## Verified Windows evidence
 
-Install before running the full Tauri app:
+The current release executable was checked with an isolated five-note state:
 
-- Node.js 18 or newer.
-- Rust stable with Cargo.
-- Tauri platform prerequisites for Windows or macOS.
+- note host: `toolWindow=true`, `appWindow=false`;
+- settings: separately created `appWindow=true`, `toolWindow=false`;
+- tray left click restores notes; the tray menu opens settings and exits;
+- release build: `My Sticky Notes_0.3.0-alpha.0_x64-setup.exe` generated;
+- five-note working set: 70.9 MB; settings-open working set: 71.1 MB.
 
-Useful commands after installing the toolchain:
+The enforced Windows runtime budgets are 150 MB for one note, 220 MB for five
+notes, and 250 MB while Settings is open. The probe measures the application
+process working set; shared OS WebView resources should also be inspected with
+platform profiling before declaring a production performance SLA.
 
-```powershell
-pnpm install --frozen-lockfile
-pnpm run check:frontend
-cargo check --manifest-path src-tauri\Cargo.toml
-cargo test --manifest-path src-tauri\Cargo.toml
-pnpm run tauri:dev
-pnpm run tauri:build
-python scripts\tauri_runtime_probe.py
-```
+## Remaining release prerequisite: signed updater
 
-## Memory constraint
+Tauri's official updater verifies signed artifacts before installing them. To
+enable the requested automatic GitHub Release installation, the release owner
+must provide a persistent updater signing key, add its private part to GitHub
+Actions as `TAURI_SIGNING_PRIVATE_KEY`, and publish the matching signed
+`latest.json` plus updater artifacts. The public key can then be committed in
+`tauri.conf.json` and the updater plugin can be enabled without weakening
+installer verification.
 
-The rewrite should preserve the lightweight product feel. The architecture
-should be measured against these working budgets before calling the migration
-done:
+This is intentionally not replaced with an unsigned download-and-execute
+fallback.
 
-- Idle with one note: target below 150 MB.
-- Settings open: target below 250 MB.
-- Five notes: target below 220 MB.
-- Closing Settings should release any Settings-only memory.
+## macOS
 
-If these budgets are missed, prefer reducing renderer count, removing heavy
-frontend dependencies, and lazy-loading Settings before adding new features.
+The bundle target includes `dmg` and an `.icns` icon. A macOS runner or real
+Mac still needs to verify DMG generation, LaunchAgent autostart, tray behaviour
+and the dynamic settings window before macOS support can be called complete.

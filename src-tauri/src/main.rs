@@ -3,11 +3,15 @@ use std::{env, fs, path::PathBuf};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize,
+    AppHandle, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewUrl,
+    WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
-const STATE_VERSION: u16 = 7;
+const STATE_VERSION: u16 = 8;
+const NOTES_HOST_MAX_WIDTH: f64 = 1120.0;
+const NOTES_HOST_MAX_HEIGHT: f64 = 760.0;
+const NOTES_HOST_MARGIN: i32 = 24;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,7 +51,7 @@ struct Note {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     width: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    height: Option<f64>,
+    body_height: Option<f64>,
     #[serde(default)]
     todos: Vec<Todo>,
 }
@@ -109,11 +113,6 @@ fn load_state(app: AppHandle) -> Result<AppState, String> {
     if let Some(state) = read_json(&state_path(&app)?)? {
         return Ok(state);
     }
-    if configured_data_dir().is_none() {
-        if let Some(state) = read_json(&legacy_state_path())? {
-            return Ok(state);
-        }
-    }
     Ok(AppState::default())
 }
 
@@ -146,23 +145,6 @@ fn set_open_at_login(app: AppHandle, enabled: bool) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn set_settings_visibility(app: AppHandle, visible: bool) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        window
-            .set_skip_taskbar(!visible)
-            .map_err(|error| error.to_string())?;
-        sync_windows_taskbar_style(&window, visible)?;
-        if visible {
-            window.show().map_err(|error| error.to_string())?;
-            window.set_focus().map_err(|error| error.to_string())?;
-        } else {
-            position_notes_window(&app)?;
-        }
-    }
-    Ok(())
-}
-
-#[tauri::command]
 fn set_always_on_top(app: AppHandle, pinned: bool) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
         window
@@ -191,13 +173,6 @@ fn state_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(data_dir.join("state.json"))
 }
 
-fn legacy_state_path() -> PathBuf {
-    env::var_os("LOCALAPPDATA")
-        .map(|value| PathBuf::from(value).join("MyStickyNotes"))
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("state.json")
-}
-
 fn configured_data_dir() -> Option<PathBuf> {
     env::var_os("MY_STICKY_NOTES_DATA_DIR").map(PathBuf::from)
 }
@@ -207,6 +182,27 @@ fn show_main_window(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+fn show_settings_window(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("settings") {
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(
+        app,
+        "settings",
+        WebviewUrl::App("index.html?settings=1".into()),
+    )
+    .title("桌面便利贴设置")
+    .inner_size(720.0, 560.0)
+    .min_inner_size(520.0, 420.0)
+    .resizable(true)
+    .center()
+    .build()
+    .map(|_| ())
+    .map_err(|error| error.to_string())
 }
 
 fn position_notes_window(app: &AppHandle) -> Result<(), String> {
@@ -221,11 +217,42 @@ fn position_notes_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     };
     let work_area = monitor.work_area();
+    let (target_width, target_height) = notes_host_logical_size(
+        work_area.size,
+        monitor.scale_factor(),
+        NOTES_HOST_MARGIN,
+    );
+    window
+        .set_size(LogicalSize::new(target_width, target_height))
+        .map_err(|error| error.to_string())?;
     let window_size = window.outer_size().map_err(|error| error.to_string())?;
-    let position = top_right_position(work_area.position, work_area.size, window_size, 24);
+    let position = top_right_position(
+        work_area.position,
+        work_area.size,
+        window_size,
+        NOTES_HOST_MARGIN,
+    );
     window
         .set_position(position)
         .map_err(|error| error.to_string())
+}
+
+fn notes_host_logical_size(
+    work_area_size: PhysicalSize<u32>,
+    scale_factor: f64,
+    margin: i32,
+) -> (f64, f64) {
+    let safe_width = work_area_size
+        .width
+        .saturating_sub((margin.max(0) as u32).saturating_mul(2)) as f64;
+    let safe_height = work_area_size
+        .height
+        .saturating_sub((margin.max(0) as u32).saturating_mul(2)) as f64;
+    let scale = scale_factor.max(0.01);
+    (
+        (safe_width / scale).min(NOTES_HOST_MAX_WIDTH),
+        (safe_height / scale).min(NOTES_HOST_MAX_HEIGHT),
+    )
 }
 
 fn top_right_position(
@@ -240,10 +267,7 @@ fn top_right_position(
 }
 
 #[cfg(windows)]
-fn sync_windows_taskbar_style(
-    window: &tauri::WebviewWindow,
-    visible: bool,
-) -> Result<(), String> {
+fn ensure_notes_taskbar_style(window: &tauri::WebviewWindow) -> Result<(), String> {
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, SWP_FRAMECHANGED,
         SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
@@ -252,12 +276,7 @@ fn sync_windows_taskbar_style(
     let hwnd = window.hwnd().map_err(|error| error.to_string())?;
     unsafe {
         let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        let mut next = current;
-        if visible {
-            next = (next | WS_EX_APPWINDOW.0 as isize) & !(WS_EX_TOOLWINDOW.0 as isize);
-        } else {
-            next = (next | WS_EX_TOOLWINDOW.0 as isize) & !(WS_EX_APPWINDOW.0 as isize);
-        }
+        let next = (current | WS_EX_TOOLWINDOW.0 as isize) & !(WS_EX_APPWINDOW.0 as isize);
         if next != current {
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next);
             SetWindowPos(
@@ -276,10 +295,7 @@ fn sync_windows_taskbar_style(
 }
 
 #[cfg(not(windows))]
-fn sync_windows_taskbar_style(
-    _window: &tauri::WebviewWindow,
-    _visible: bool,
-) -> Result<(), String> {
+fn ensure_notes_taskbar_style(_window: &tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
@@ -295,11 +311,11 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             "quit" => app.exit(0),
             "show" => {
                 show_main_window(app);
-                let _ = app.emit("show-notes", ());
             }
             "settings" => {
-                show_main_window(app);
-                let _ = app.emit("open-settings", ());
+                if let Err(error) = show_settings_window(app) {
+                    eprintln!("Unable to show Settings: {error}");
+                }
             }
             _ => {}
         })
@@ -311,7 +327,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             } = event
             {
                 show_main_window(tray.app_handle());
-                let _ = tray.app_handle().emit("show-notes", ());
             }
         });
     if let Some(icon) = app.default_window_icon() {
@@ -332,7 +347,7 @@ pub fn run() {
             build_tray(app.handle())?;
             if let Some(window) = app.handle().get_webview_window("main") {
                 let _ = window.set_skip_taskbar(true);
-                if let Err(error) = sync_windows_taskbar_style(&window, false) {
+                if let Err(error) = ensure_notes_taskbar_style(&window) {
                     eprintln!("Unable to hide notes window from taskbar: {error}");
                 }
             }
@@ -346,7 +361,6 @@ pub fn run() {
             save_state,
             is_open_at_login_enabled,
             set_open_at_login,
-            set_settings_visibility,
             set_always_on_top
         ])
         .run(tauri::generate_context!())
@@ -429,5 +443,18 @@ mod tests {
             24,
         );
         assert_eq!(position, PhysicalPosition::new(24, 24));
+    }
+
+    #[test]
+    fn sizes_notes_host_to_the_available_logical_work_area() {
+        let size = notes_host_logical_size(PhysicalSize::new(1024, 560), 1.25, 24);
+        assert!((size.0 - 780.8).abs() < 0.001);
+        assert!((size.1 - 409.6).abs() < 0.001);
+    }
+
+    #[test]
+    fn caps_notes_host_on_large_displays_without_using_fixed_dpi_pixels() {
+        let size = notes_host_logical_size(PhysicalSize::new(1920, 1040), 1.0, 24);
+        assert_eq!(size, (NOTES_HOST_MAX_WIDTH, NOTES_HOST_MAX_HEIGHT));
     }
 }

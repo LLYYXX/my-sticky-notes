@@ -6,10 +6,9 @@ import time
 from ctypes import wintypes
 
 
-WM_APP = 0x8000
-WM_LBUTTONUP = 0x0202
-WM_LBUTTONDBLCLK = 0x0203
-TRAY_CALLBACK_MESSAGE = WM_APP + 1
+WM_COMMAND = 0x0111
+MENU_SHOW = 1000
+MENU_SETTINGS = 1001
 
 
 def parse_args() -> argparse.Namespace:
@@ -17,7 +16,7 @@ def parse_args() -> argparse.Namespace:
         description="Send a notification-area click to a running packaged app."
     )
     parser.add_argument("--pid", type=int, required=True)
-    parser.add_argument("action", choices=("settings",))
+    parser.add_argument("action", choices=("show", "settings"))
     return parser.parse_args()
 
 
@@ -34,10 +33,9 @@ def hidden_tray_window(pid: int) -> int:
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
         if process_id.value != pid:
             return True
-        length = user32.GetWindowTextLengthW(hwnd)
-        title = ctypes.create_unicode_buffer(length + 1)
-        user32.GetWindowTextW(hwnd, title, len(title))
-        if title.value == "My Sticky Notes":
+        class_name = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, class_name, len(class_name))
+        if class_name.value == "tray_icon_app":
             result = int(hwnd)
             return False
         return True
@@ -51,14 +49,10 @@ def hidden_tray_window(pid: int) -> int:
 def main() -> int:
     args = parse_args()
     hwnd = hidden_tray_window(args.pid)
-    events = (WM_LBUTTONUP, WM_LBUTTONDBLCLK, WM_LBUTTONUP)
-    for event in events:
-        if not ctypes.windll.user32.PostMessageW(
-            hwnd, TRAY_CALLBACK_MESSAGE, 0, event
-        ):
-            raise ctypes.WinError()
-        time.sleep(0.04)
-    time.sleep(0.65)
+    command = MENU_SETTINGS if args.action == "settings" else MENU_SHOW
+    if not ctypes.windll.user32.PostMessageW(hwnd, WM_COMMAND, command, 0):
+        raise ctypes.WinError()
+    time.sleep(0.25)
     print(f"sent={args.action} pid={args.pid} hwnd={hwnd}")
     return 0
 

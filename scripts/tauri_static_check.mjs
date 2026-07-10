@@ -5,31 +5,31 @@ const root = process.cwd();
 const requiredFiles = [
   "package.json",
   "pnpm-lock.yaml",
-  "src-tauri/Cargo.lock",
   "src/index.html",
   "src/app.js",
+  "src/views.js",
   "src/state.js",
   "src/styles.css",
-  "scripts/tauri_runtime_probe.py",
+  "src/assets/icons/add.png",
+  "src/assets/icons/checkbox-on.png",
+  "src/assets/icons/delete.png",
+  "src/assets/icons/pin.png",
+  "src/assets/app-icon.png",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/default.json",
-  "src-tauri/icons/32x32.png",
-  "src-tauri/icons/128x128.png",
-  "src-tauri/icons/128x128@2x.png",
-  "src-tauri/icons/icon.icns",
-  "src-tauri/icons/icon.ico",
   "src-tauri/src/main.rs",
+  "scripts/tauri_runtime_probe.py",
 ];
 
 for (const relative of requiredFiles) {
-  const absolute = path.join(root, relative);
-  if (!fs.existsSync(absolute)) {
+  if (!fs.existsSync(path.join(root, relative))) {
     throw new Error(`Missing ${relative}`);
   }
 }
 
 const app = fs.readFileSync(path.join(root, "src/app.js"), "utf8");
+const views = fs.readFileSync(path.join(root, "src/views.js"), "utf8");
 const state = fs.readFileSync(path.join(root, "src/state.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "src/styles.css"), "utf8");
 const rust = fs.readFileSync(path.join(root, "src-tauri/src/main.rs"), "utf8");
@@ -56,37 +56,42 @@ const noteChromeOrder = [
   'data-action="delete-note"',
   'data-action="pin-note"',
   'data-action="collapse-note"',
-].map((needle) => app.indexOf(needle));
+].map((needle) => views.indexOf(needle));
 const noteChromeControlsOrdered = noteChromeOrder.every((index) => index >= 0)
-  && noteChromeOrder.every((index, arrayIndex) => arrayIndex === 0 || index > noteChromeOrder[arrayIndex - 1]);
+  && noteChromeOrder.every((index, indexInArray) => indexInArray === 0 || index > noteChromeOrder[indexInArray - 1]);
 
 const checks = [
-  ["settings opens on demand", app.includes("settingsOpen") && app.includes('data-action="open-settings"')],
+  ["renderer responsibilities are separated", app.includes('from "./views.js"') && views.includes("renderNotes") && views.includes("renderSettings")],
+  ["note and settings use dedicated window contexts", app.includes("isSettingsWindow") && rust.includes("show_settings_window") && rust.includes('WebviewUrl::App("index.html?settings=1"')],
+  ["settings webview is created only on demand", rust.includes('get_webview_window("settings")') && rust.includes("WebviewWindowBuilder::new") && !config.app.windows.some((window) => window.label === "settings")],
   ["preview states are available for visual QA", app.includes("previewCollapsed") && app.includes("previewPalette")],
-  ["note chrome keeps compact text controls", app.includes('title="${tr("newNote")}">＋</button>') && app.includes('title="${tr("delete")}">×</button>') && app.includes('title="${tr("pin")}">⌾</button>') && styles.includes("border-radius: 999px;")],
+  ["note chrome uses bundled raster icons", views.includes("./assets/icons/") && !views.includes(">＋</button>") && !views.includes(">×</button>")],
   ["note chrome keeps requested button order", noteChromeControlsOrdered],
-  ["default note placement is viewport-relative", state.includes("globalThis.innerWidth") && state.includes("defaultNoteX") && !rust.includes("default_x") && rust.includes("x: Option<f64>")],
-  ["legacy note coordinates are clamped into viewport", state.includes("clampToViewportX") && state.includes("clampToViewportY") && state.includes("viewportWidth - width")],
-  ["collapse action is implemented", app.includes('data-action="collapse-note"') && state.includes("toggleNoteCollapsed")],
+  ["nine independent note colors remain available", ["yellow", "offwhite", "lime", "lilac", "cream", "pink", "mint", "coral", "navy"].every((color) => state.includes(`${color}: {`))],
+  ["default note placement is viewport-relative", state.includes("globalThis.innerWidth") && state.includes("defaultNoteX") && rust.includes("x: Option<f64>")],
+  ["legacy note height is not restored", !state.includes("note.height") && state.includes("bodyHeight")],
+  ["note content height follows its todo list by default", views.includes("note.bodyHeight ?") && styles.includes("var(--note-body-height, 0px)") && !views.includes("min-height:${note.collapsed")],
+  ["long todos wrap inside their note", styles.includes("overflow-wrap: anywhere") && styles.includes("word-break: break-word")],
+  ["collapse action is implemented", views.includes('data-action="collapse-note"') && state.includes("toggleNoteCollapsed")],
   ["collapsed state is persisted", state.includes("collapsed: Boolean")],
-  ["Tauri commands are wired", app.includes('invoke("load_state"') && app.includes('invoke("save_state"')],
+  ["per-note resize is persisted", app.includes("startResize") && app.includes("bodyHeight") && views.includes("note-resize")],
+  ["Tauri state commands are wired", app.includes('invoke("load_state"') && app.includes('invoke("save_state"')],
   ["Tauri command failures degrade safely", app.includes("console.warn(`Tauri command failed:") && app.includes("return null;")],
   ["global pointer listeners are bound once", app.includes("pointerEventsBound") && app.includes("bindPointerEvents()")],
-  ["taskbar visibility is settings-driven", app.includes('invoke("set_settings_visibility"') && rust.includes("set_settings_visibility") && config.app.windows[0].skipTaskbar === true],
-  ["window shell is sticky-layer styled", config.app.windows[0].decorations === false && config.app.windows[0].transparent === true && styles.includes("background: transparent;")],
-  ["host window is positioned from monitor work area", rust.includes("position_notes_window") && rust.includes("top_right_position") && rust.includes("monitor.work_area()")],
+  ["note host stays out of the taskbar", config.app.windows[0].skipTaskbar === true && rust.includes("ensure_notes_taskbar_style")],
+  ["settings is the only normal taskbar window", rust.includes("WebviewWindowBuilder::new") && rust.includes('.title("桌面便利贴设置")')],
+  ["window shell is sticky-layer styled", config.app.windows[0].decorations === false && config.app.windows[0].transparent === true && config.app.windows[0].resizable === false && styles.includes("background: transparent;")],
+  ["host window uses monitor work area and scale factor", rust.includes("position_notes_window") && rust.includes("top_right_position") && rust.includes("notes_host_logical_size") && rust.includes("monitor.work_area()") && !Object.prototype.hasOwnProperty.call(config.app.windows[0], "minWidth") && !Object.prototype.hasOwnProperty.call(config.app.windows[0], "minHeight")],
   ["QA can use isolated Tauri state directory", rust.includes("configured_data_dir") && rust.includes("MY_STICKY_NOTES_DATA_DIR") && rust.includes("app.path().app_data_dir()")],
   ["pin state reaches host window", app.includes('invoke("set_always_on_top"') && rust.includes("set_always_on_top")],
   ["autostart setting reaches native plugin", app.includes('invoke("set_open_at_login"') && app.includes('invoke("is_open_at_login_enabled"') && cargoToml.includes("tauri-plugin-autostart") && rust.includes("ManagerExt")],
-  ["tray is implemented once in Rust", !("trayIcon" in config.app) && rust.includes("TrayIconBuilder::new()")],
-  ["tray left click restores notes without opening the menu", rust.includes(".show_menu_on_left_click(false)") && rust.includes("MouseButton::Left") && rust.includes('emit("show-notes"')],
-  ["tray can open settings through frontend event", rust.includes('emit("open-settings"') && app.includes('listen("open-settings"')],
-  ["runtime probe covers tray commands and reversible autostart", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("MENU_QUIT = 1002") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("autostartDisabled")],
-  ["Tauri v2 capability file is present", capabilities.identifier === "default" && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
-  ["Tauri bundle icons cover Windows and macOS", Array.isArray(config.bundle.icon) && config.bundle.icon.includes("icons/icon.ico") && config.bundle.icon.includes("icons/icon.icns")],
-  ["settings page exists", app.includes("settings-shell")],
-  ["color palette exists", app.includes("palette-popover")],
-  ["collapsed content is visually hidden", styles.includes(".note.collapsed .note-body")],
+  ["tray is implemented once in Rust", !('trayIcon' in config.app) && rust.includes("TrayIconBuilder::new()")],
+  ["tray left click restores notes", rust.includes(".show_menu_on_left_click(false)") && rust.includes("MouseButton::Left") && rust.includes("show_main_window(tray.app_handle())")],
+  ["tray opens the independent settings window", rust.includes('"settings" =>') && rust.includes("show_settings_window(app)")],
+  ["runtime probe covers settings, autostart, and runtime budgets", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("settingsWindow") && runtimeProbe.includes("working_set_mb") && runtimeProbe.includes("assert_memory_budget")],
+  ["Tauri v2 capability file covers both views", capabilities.identifier === "default" && capabilities.windows.includes("main") && capabilities.windows.includes("settings") && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
+  ["settings page exists without a note settings section", views.includes("settings-window") && !views.includes("stayLightweight")],
+  ["color palette exists", views.includes("palette-popover")],
   ["hidden popovers stay hidden", styles.includes("[hidden]")],
   ["Windows and macOS bundle targets exist", JSON.stringify(config.bundle.targets) === JSON.stringify(["nsis", "dmg"])],
   ["CI uses stable GitHub action majors", ci.includes("actions/checkout@v4") && ci.includes("actions/setup-node@v4") && tauriBuild.includes("actions/upload-artifact@v4")],

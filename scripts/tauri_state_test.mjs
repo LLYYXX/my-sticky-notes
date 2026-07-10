@@ -13,7 +13,7 @@ const ids = (prefix) => `${prefix}-${++sequence}`;
 
 {
   const state = normalizeState({}, ids);
-  assert.equal(state.version, 7);
+  assert.equal(state.version, 8);
   assert.equal(state.settings.language, "zh-CN");
   assert.equal(state.notes.length, 1);
   assert.equal(state.notes[0].color, "yellow");
@@ -65,7 +65,7 @@ const ids = (prefix) => `${prefix}-${++sequence}`;
   assert.equal(state.settings.language, "en");
   assert.equal(state.notes[0].color, "yellow");
   assert.equal(state.notes[0].width, 280);
-  assert.equal(state.notes[0].height, 220);
+  assert.equal(state.notes[0].bodyHeight, null);
 }
 
 {

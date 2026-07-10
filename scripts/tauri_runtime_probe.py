@@ -30,6 +30,8 @@ MENU_QUIT = 1002
 
 RUN_KEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
 APP_REG_NAMES = ("my-sticky-notes", "My Sticky Notes")
+NOTE_TITLE = "My Sticky Notes"
+SETTINGS_TITLE = "桌面便利贴设置"
 
 
 user32 = ctypes.windll.user32
@@ -45,6 +47,22 @@ class RECT(ctypes.Structure):
         ("top", ctypes.c_long),
         ("right", ctypes.c_long),
         ("bottom", ctypes.c_long),
+    ]
+
+
+class PROCESS_MEMORY_COUNTERS_EX(ctypes.Structure):
+    _fields_ = [
+        ("cb", wintypes.DWORD),
+        ("PageFaultCount", wintypes.DWORD),
+        ("PeakWorkingSetSize", ctypes.c_size_t),
+        ("WorkingSetSize", ctypes.c_size_t),
+        ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+        ("QuotaPagedPoolUsage", ctypes.c_size_t),
+        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+        ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+        ("PagefileUsage", ctypes.c_size_t),
+        ("PeakPagefileUsage", ctypes.c_size_t),
+        ("PrivateUsage", ctypes.c_size_t),
     ]
 
 
@@ -66,6 +84,17 @@ def parse_args() -> argparse.Namespace:
         "--skip-autostart",
         action="store_true",
         help="Skip reversible HKCU autostart verification.",
+    )
+    parser.add_argument(
+        "--note-count",
+        type=int,
+        default=1,
+        help="Populate an isolated state with this many notes before launch.",
+    )
+    parser.add_argument(
+        "--skip-memory-budget",
+        action="store_true",
+        help="Record process memory without enforcing the lightweight budgets.",
     )
     return parser.parse_args()
 
@@ -137,8 +166,30 @@ def wait_for(predicate, timeout: float = 5.0, interval: float = 0.1):
     raise AssertionError(f"timed out waiting for condition; last={last!r}")
 
 
-def find_main_window(pid: int) -> dict[str, object]:
-    return wait_for(lambda: (main_windows(pid) or [None])[0])
+def find_note_window(pid: int) -> dict[str, object]:
+    return wait_for(
+        lambda: next(
+            (
+                window
+                for window in main_windows(pid)
+                if window["title"] == NOTE_TITLE and bool(window["toolWindow"])
+            ),
+            None,
+        )
+    )
+
+
+def find_settings_window(pid: int) -> dict[str, object]:
+    return wait_for(
+        lambda: next(
+            (
+                window
+                for window in main_windows(pid)
+                if window["title"] == SETTINGS_TITLE and bool(window["appWindow"])
+            ),
+            None,
+        )
+    )
 
 
 def find_tray_hwnd(pid: int) -> int:
@@ -151,11 +202,12 @@ def find_tray_hwnd(pid: int) -> int:
     return int(wait_for(find))
 
 
-def click(hwnd_rect: list[int], css_x: float, css_y: float) -> None:
+def click(hwnd_rect: list[int], relative_x: float, relative_y: float) -> None:
     left, top, right, bottom = hwnd_rect
-    scale_x = (right - left) / 1120
-    scale_y = (bottom - top) / 760
-    user32.SetCursorPos(round(left + css_x * scale_x), round(top + css_y * scale_y))
+    user32.SetCursorPos(
+        round(left + (right - left) * relative_x),
+        round(top + (bottom - top) * relative_y),
+    )
     user32.mouse_event(0x0002, 0, 0, 0, 0)
     user32.mouse_event(0x0004, 0, 0, 0, 0)
 
@@ -225,14 +277,70 @@ def reset_probe_state(state_dir: Path) -> None:
         shutil.rmtree(resolved)
 
 
-def click_settings_button(pid: int) -> None:
-    window = find_main_window(pid)
-    click(window["rect"], 65, 44)
+def write_fixture_state(state_dir: Path, note_count: int) -> None:
+    if note_count < 1:
+        raise AssertionError("note-count must be at least one")
+    colors = ("yellow", "offwhite", "lime", "lilac", "cream", "pink", "mint", "coral", "navy")
+    notes = [
+        {
+            "id": f"probe-note-{index}",
+            "color": colors[index % len(colors)],
+            "pinned": False,
+            "collapsed": False,
+            "todos": [
+                {
+                    "id": f"probe-todo-{index}",
+                    "text": "runtime probe todo",
+                    "completed": False,
+                    "order": 0,
+                }
+            ],
+        }
+        for index in range(note_count)
+    ]
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "version": 8,
+                "settings": {"openAtLogin": False, "language": "en"},
+                "notes": notes,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def working_set_mb(pid: int) -> float:
+    process_query_limited_information = 0x1000
+    handle = ctypes.windll.kernel32.OpenProcess(
+        process_query_limited_information, False, pid
+    )
+    if not handle:
+        raise ctypes.WinError()
+    try:
+        counters = PROCESS_MEMORY_COUNTERS_EX()
+        counters.cb = ctypes.sizeof(counters)
+        if not ctypes.windll.psapi.GetProcessMemoryInfo(
+            handle, ctypes.byref(counters), counters.cb
+        ):
+            raise ctypes.WinError()
+        return round(counters.WorkingSetSize / (1024 * 1024), 1)
+    finally:
+        ctypes.windll.kernel32.CloseHandle(handle)
+
+
+def assert_memory_budget(working_set: float, note_count: int) -> None:
+    budget = 220.0 if note_count >= 5 else 150.0
+    if working_set > budget:
+        raise AssertionError(
+            f"working set exceeds {budget:.0f} MB budget: {working_set:.1f} MB"
+        )
 
 
 def click_autostart_switch(pid: int) -> None:
-    window = find_main_window(pid)
-    click(window["rect"], 650, 315)
+    window = find_settings_window(pid)
+    click(window["rect"], 0.89, 0.38)
 
 
 def main() -> int:
@@ -243,6 +351,7 @@ def main() -> int:
     if not exe.exists():
         raise SystemExit(f"missing executable: {exe}")
     reset_probe_state(args.state_dir)
+    write_fixture_state(args.state_dir, args.note_count)
 
     env = os.environ.copy()
     env["MY_STICKY_NOTES_DATA_DIR"] = str(args.state_dir.resolve())
@@ -251,13 +360,24 @@ def main() -> int:
     try:
         note = wait_for(lambda: assertion_probe(process.pid, "note"), timeout=10.0)
         evidence["initialNoteMode"] = note
+        idle_memory = working_set_mb(process.pid)
+        evidence["idleWorkingSetMb"] = idle_memory
+        if not args.skip_memory_budget:
+            assert_memory_budget(idle_memory, args.note_count)
 
         tray_hwnd = find_tray_hwnd(process.pid)
         evidence["trayHwnd"] = tray_hwnd
 
         post_menu_command(tray_hwnd, MENU_SETTINGS)
         settings = wait_for(lambda: (assertion_probe(process.pid, "settings")))
-        evidence["traySettingsCommand"] = settings
+        evidence["settingsWindow"] = settings
+        settings_memory = working_set_mb(process.pid)
+        evidence["settingsWorkingSetMb"] = settings_memory
+        if not args.skip_memory_budget and settings_memory > 250.0:
+            raise AssertionError(
+                "Settings working set exceeds 250 MB budget: "
+                f"{settings_memory:.1f} MB"
+            )
 
         post_tray_click(tray_hwnd)
         restored = wait_for(lambda: (assertion_probe(process.pid, "note")))
@@ -304,7 +424,7 @@ def main() -> int:
 
 
 def assertion_probe(pid: int, mode: str) -> dict[str, object] | None:
-    window = find_main_window(pid)
+    window = find_settings_window(pid) if mode == "settings" else find_note_window(pid)
     try:
         if mode == "settings":
             assert_settings_mode(window)

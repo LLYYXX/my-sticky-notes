@@ -1,4 +1,4 @@
-export const STATE_VERSION = 7;
+export const STATE_VERSION = 8;
 
 export const palette = {
   yellow: {
@@ -100,12 +100,23 @@ export const copy = {
     version: "当前版本",
     source: "开源地址",
     update: "检查更新",
+    checkNow: "立即检查",
+    updateIdle: "尚未检查更新。",
+    updateCurrent: "已是最新版本。",
+    updateAvailable: "发现新版本，正在准备安装。",
+    updateFailed: "暂时无法检查更新，请稍后重试。",
     addTodo: "添加待办",
-    empty: "暂无待办，直接输入第一条。",
+    notes: "便签",
+    todoText: "待办内容",
+    markDone: "标记完成",
+    markOpen: "标记未完成",
     collapse: "收起",
     expand: "展开",
     pin: "置顶",
+    unpin: "取消置顶",
     delete: "删除",
+    resize: "调整便签大小",
+    languageHint: "选择界面显示语言。",
   },
   en: {
     appName: "My Sticky Notes",
@@ -122,12 +133,23 @@ export const copy = {
     version: "Current version",
     source: "Open source",
     update: "Check update",
+    checkNow: "Check now",
+    updateIdle: "No update check yet.",
+    updateCurrent: "You are up to date.",
+    updateAvailable: "An update is available and will be prepared for installation.",
+    updateFailed: "Unable to check for updates right now.",
     addTodo: "Add todo",
-    empty: "No todos yet. Type the first one.",
+    notes: "Notes",
+    todoText: "Todo text",
+    markDone: "Mark complete",
+    markOpen: "Mark incomplete",
     collapse: "Collapse",
     expand: "Expand",
     pin: "Pin",
+    unpin: "Unpin",
     delete: "Delete",
+    resize: "Resize note",
+    languageHint: "Choose the interface language.",
   },
 };
 
@@ -163,7 +185,7 @@ export function createDefaultNote(index = 0, idFactory = createId) {
     x: defaultNoteX(index),
     y: 38 + index * 32,
     width: 340,
-    height: 380,
+    bodyHeight: null,
     todos: [createDefaultTodo(0, idFactory), createDefaultTodo(1, idFactory)],
   };
 }
@@ -185,16 +207,18 @@ export function normalizeState(raw = {}, idFactory = createId) {
 export function normalizeNote(note = {}, index = 0, idFactory = createId) {
   const color = palette[note.color] ? note.color : "yellow";
   const width = Math.max(280, numberOr(note.width, 340));
-  const height = Math.max(220, numberOr(note.height, 380));
+  const bodyHeight = Number.isFinite(note.bodyHeight)
+    ? Math.max(128, Math.round(note.bodyHeight))
+    : null;
   return {
     id: String(note.id || idFactory("note")),
     color,
     pinned: Boolean(note.pinned),
     collapsed: Boolean(note.collapsed),
     x: clampToViewportX(numberOr(note.x, defaultNoteX(index, width)), width),
-    y: clampToViewportY(numberOr(note.y, 38 + index * 32), height),
+    y: clampToViewportY(numberOr(note.y, 38 + index * 32), estimatedNoteHeight(bodyHeight)),
     width,
-    height,
+    bodyHeight,
     todos: Array.isArray(note.todos)
       ? note.todos
           .map((todo, todoIndex) => normalizeTodo(todo, todoIndex, idFactory))
@@ -262,6 +286,10 @@ function clampToViewportY(value, height) {
   const visibleHeight = Math.min(height, 460);
   const maxY = Math.max(8, viewportHeight - visibleHeight - 8);
   return clamp(value, 8, maxY);
+}
+
+function estimatedNoteHeight(bodyHeight) {
+  return 44 + (bodyHeight ?? 164) + 18;
 }
 
 function clamp(value, min, max) {
