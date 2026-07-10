@@ -64,6 +64,10 @@ Implemented in this checkpoint:
 - `scripts/tauri_state_test.mjs` verifies the pure frontend state model,
   including viewport-relative default placement, off-screen legacy coordinate
   clamping, legacy `open_at_login` migration, and persisted collapse state.
+- `scripts/tauri_runtime_probe.py` is a Windows runtime probe for the packaged
+  app. It launches the release exe, checks note/settings taskbar styles, sends
+  tray-window commands for show/settings/quit, and verifies autostart by
+  toggling the Settings switch against HKCU `Run` entries before cleaning up.
 - The push CI no longer builds the legacy Python installer. A manual
   `Tauri Build` workflow is available for Windows/macOS bundle validation. It
   uses `pnpm install --frozen-lockfile` so CI matches the checked-in
@@ -91,8 +95,10 @@ Not complete yet:
 - Update installation and deeper window behavior still need to be reimplemented
   with Tauri plugins or platform code.
 - Native autostart is wired to the Tauri autostart plugin, but it still needs
-  real runtime verification.
-- Tray menu actions still need direct runtime checks.
+  a completed `scripts/tauri_runtime_probe.py` run in a GUI-capable Windows
+  session.
+- Tray menu actions are covered by `scripts/tauri_runtime_probe.py`, but that
+  probe still needs a completed GUI-capable run after the latest script update.
 
 ## Required local toolchain
 
@@ -111,6 +117,7 @@ cargo check --manifest-path src-tauri\Cargo.toml
 cargo test --manifest-path src-tauri\Cargo.toml
 pnpm run tauri:dev
 pnpm run tauri:build
+python scripts\tauri_runtime_probe.py
 ```
 
 ## Memory constraint

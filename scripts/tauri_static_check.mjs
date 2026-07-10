@@ -10,6 +10,7 @@ const requiredFiles = [
   "src/app.js",
   "src/state.js",
   "src/styles.css",
+  "scripts/tauri_runtime_probe.py",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/default.json",
@@ -49,6 +50,7 @@ const release = fs.existsSync(path.join(root, ".github/workflows/release.yml"))
   ? fs.readFileSync(path.join(root, ".github/workflows/release.yml"), "utf8")
   : "";
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const runtimeProbe = fs.readFileSync(path.join(root, "scripts/tauri_runtime_probe.py"), "utf8");
 
 const checks = [
   ["settings opens on demand", app.includes("settingsOpen") && app.includes('data-action="open-settings"')],
@@ -68,7 +70,9 @@ const checks = [
   ["pin state reaches host window", app.includes('invoke("set_always_on_top"') && rust.includes("set_always_on_top")],
   ["autostart setting reaches native plugin", app.includes('invoke("set_open_at_login"') && app.includes('invoke("is_open_at_login_enabled"') && cargoToml.includes("tauri-plugin-autostart") && rust.includes("ManagerExt")],
   ["tray is implemented once in Rust", !("trayIcon" in config.app) && rust.includes("TrayIconBuilder::new()")],
+  ["tray left click restores notes without opening the menu", rust.includes(".show_menu_on_left_click(false)") && rust.includes("MouseButton::Left") && rust.includes('emit("show-notes"')],
   ["tray can open settings through frontend event", rust.includes('emit("open-settings"') && app.includes('listen("open-settings"')],
+  ["runtime probe covers tray commands and reversible autostart", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("MENU_QUIT = 1002") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("autostartDisabled")],
   ["Tauri v2 capability file is present", capabilities.identifier === "default" && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
   ["Tauri bundle icons cover Windows and macOS", Array.isArray(config.bundle.icon) && config.bundle.icon.includes("icons/icon.ico") && config.bundle.icon.includes("icons/icon.icns")],
   ["settings page exists", app.includes("settings-shell")],

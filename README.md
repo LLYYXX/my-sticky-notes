@@ -63,6 +63,7 @@ git diff --check
 ```powershell
 pnpm run tauri:dev
 pnpm run tauri:build
+python scripts\tauri_runtime_probe.py
 ```
 
 当前 Windows 本地已成功生成：
@@ -83,8 +84,7 @@ src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.0_x64-setup.exe
 
 还需要实际检查：
 
-- 托盘菜单是否能恢复便签、打开设置、退出应用；
-- 登录后自启是否对应系统启动项；
+- 运行 `scripts\tauri_runtime_probe.py`，确认托盘菜单恢复/设置/退出和自启注册表开关；
 - macOS DMG 是否能正常产出。
 
 ## CI / Release
