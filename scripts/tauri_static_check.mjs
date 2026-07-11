@@ -117,7 +117,7 @@ const checks = [
   ["release versions stay aligned", packageJson.version === config.version && app.includes(`const APP_VERSION = "v${packageJson.version}"`)],
   ["active icon license is retained", fs.existsSync(path.join(root, "src/assets/icons/LICENSE-lucide.txt")) && fs.readFileSync(path.join(root, "README.md"), "utf8").includes("src/assets/icons/LICENSE-lucide.txt")],
   ["release publishes from manual dispatch or a version tag", release.includes("workflow_dispatch") && release.includes("tags:") && release.includes('"v*"') && release.includes("windows-latest") && release.includes("macos-latest") && release.includes("cargo test --locked") && release.includes("gh release upload") && !release.includes("build.ps1")],
-  ["release publishes only installable assets", release.includes("bundle/nsis/*.exe") && release.includes("bundle/dmg/*.dmg") && !release.includes("bundle/**") && release.includes("gh release delete-asset")],
+  ["release publishes installers plus legacy update metadata", release.includes("bundle/nsis/*.exe") && release.includes("bundle/dmg/*.dmg") && !release.includes("bundle/**") && release.includes("gh release delete-asset") && release.includes("My.Sticky.Notes.Setup.${version}.exe") && release.includes("SHA256SUMS.txt")],
   ["release builds both Mac architectures", release.includes("macos-latest") && release.includes("macos-15-intel")],
 ];
 

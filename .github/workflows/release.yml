@@ -71,6 +71,19 @@ jobs:
           pattern: my-sticky-notes-release-*
           path: release-assets
           merge-multiple: true
+      - name: Add legacy updater compatibility assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          installer="$(find release-assets -maxdepth 1 -type f -name '*_x64-setup.exe' -print -quit)"
+          test -n "$installer"
+          legacy_name="My.Sticky.Notes.Setup.${version}.exe"
+          cp "$installer" "release-assets/$legacy_name"
+          (
+            cd release-assets
+            sha256sum -- *.exe *.dmg > SHA256SUMS.txt
+          )
       - name: Create and upload GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

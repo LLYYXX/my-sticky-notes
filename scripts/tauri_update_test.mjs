@@ -1,4 +1,5 @@
 import assert from "assert";
+import fs from "fs";
 import { checkGithubRelease, compareVersions, normalizeVersion } from "../src/updates.js";
 
 function response(payload, status = 200) {
@@ -8,6 +9,16 @@ function response(payload, status = 200) {
     headers: { get: () => null },
     json: async () => payload,
   };
+}
+
+function normalizedLegacyAssetName(value) {
+  return String(value || "").trim().replace(/[\s._-]+/g, ".").toLowerCase();
+}
+
+function legacyUpdateAssetsAreCompatible(version, assetNames) {
+  const expectedInstaller = normalizedLegacyAssetName(`My Sticky Notes Setup ${version}.exe`);
+  return assetNames.some((name) => normalizedLegacyAssetName(name) === expectedInstaller)
+    && assetNames.includes("SHA256SUMS.txt");
 }
 
 assert.equal(normalizeVersion("v0.3.0-alpha.0"), "0.3.0-alpha.0");
@@ -45,4 +56,14 @@ await assert.rejects(
   /no published release available/,
 );
 
-console.log(JSON.stringify({ result: "passed", tests: 15 }));
+{
+  const release = fs.readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
+  const releaseAssets = ["My.Sticky.Notes_0.3.0_x64-setup.exe"];
+  if (release.includes('legacy_name="My.Sticky.Notes.Setup.${version}.exe"')) {
+    releaseAssets.push("My.Sticky.Notes.Setup.0.3.0.exe");
+  }
+  if (release.includes("SHA256SUMS.txt")) releaseAssets.push("SHA256SUMS.txt");
+  assert.equal(legacyUpdateAssetsAreCompatible("0.3.0", releaseAssets), true);
+}
+
+console.log(JSON.stringify({ result: "passed", tests: 16 }));
