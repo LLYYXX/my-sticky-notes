@@ -28,7 +28,7 @@ plain HTML/CSS/JS       无框架运行时与额外 UI 依赖
 
 ## 开发
 
-要求：Node.js 20+、pnpm 11、Rust stable，以及平台对应的 Tauri 系统依赖。
+要求：Node.js 22.13+、pnpm 11、Rust stable，以及平台对应的 Tauri 系统依赖。
 
 ```powershell
 pnpm install --frozen-lockfile

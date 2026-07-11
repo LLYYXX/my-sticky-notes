@@ -1,6 +1,6 @@
 # Contributing
 
-The supported runtime is Tauri 2: Node.js 20+, pnpm 11, and stable Rust.
+The supported development runtime is Tauri 2: Node.js 22.13+, pnpm 11, and stable Rust.
 
 ```powershell
 pnpm install --frozen-lockfile
