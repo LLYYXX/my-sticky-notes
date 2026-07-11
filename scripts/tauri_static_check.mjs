@@ -110,7 +110,7 @@ const checks = [
   ["hidden popovers stay hidden", styles.includes("[hidden]")],
   ["Windows and macOS bundle targets exist", JSON.stringify(config.bundle.targets) === JSON.stringify(["nsis", "dmg"])],
   ["CI uses stable GitHub action majors", tauriBuild.includes("actions/checkout@v4") && tauriBuild.includes("actions/setup-node@v4") && tauriBuild.includes("actions/upload-artifact@v4")],
-  ["Tauri CI validates both supported desktop platforms", tauriBuild.includes("push:") && tauriBuild.includes("pull_request:") && tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("cargo test --locked")],
+  ["Tauri CI validates Windows plus both Mac architectures", tauriBuild.includes("push:") && tauriBuild.includes("pull_request:") && tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("macos-15-intel") && tauriBuild.includes("cargo test --locked")],
   ["build workflows use a pnpm-compatible Node version", packageJson.engines?.node === ">=22.13" && tauriBuild.includes('node-version: "22"') && release.includes('node-version: "22"')],
   ["Tauri build workflow uses locked pnpm install", tauriBuild.includes("corepack enable") && tauriBuild.includes("pnpm install --frozen-lockfile") && tauriBuild.includes("pnpm run tauri:build")],
   ["frontend package manager and Tauri CLI are pinned", packageJson.packageManager === "pnpm@11.7.0" && packageJson.devDependencies?.["@tauri-apps/cli"] === "2.11.4"],
@@ -118,6 +118,7 @@ const checks = [
   ["active icon license is retained", fs.existsSync(path.join(root, "src/assets/icons/LICENSE-lucide.txt")) && fs.readFileSync(path.join(root, "README.md"), "utf8").includes("src/assets/icons/LICENSE-lucide.txt")],
   ["release publishes from manual dispatch or a version tag", release.includes("workflow_dispatch") && release.includes("tags:") && release.includes('"v*"') && release.includes("windows-latest") && release.includes("macos-latest") && release.includes("cargo test --locked") && release.includes("gh release upload") && !release.includes("build.ps1")],
   ["release publishes only installable assets", release.includes("bundle/nsis/*.exe") && release.includes("bundle/dmg/*.dmg") && !release.includes("bundle/**") && release.includes("gh release delete-asset")],
+  ["release builds both Mac architectures", release.includes("macos-latest") && release.includes("macos-15-intel")],
 ];
 
 const failures = checks.filter(([, passed]) => !passed).map(([name]) => name);

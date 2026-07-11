@@ -59,7 +59,7 @@ src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0_x64-setup.exe
 
 ## 跨平台
 
-`tauri.conf.json` 同时声明 Windows `nsis` 和 macOS `dmg` 打包目标。Windows 已完成真实运行时验证；macOS 仍需在真实 Mac 或 GitHub 的 macOS runner 上完成 DMG 与托盘/自启行为验证。
+`tauri.conf.json` 同时声明 Windows `nsis` 和 macOS `dmg` 打包目标。Release 会提供 Windows x64、macOS Apple Silicon 与 Intel 三种原生安装包。Windows 已完成真实运行时验证；macOS 仍需在真实 Mac 上完成托盘与自启行为验证。
 
 ## 许可
 

@@ -23,7 +23,10 @@ jobs:
             artifact-name: my-sticky-notes-release-windows
             bundle-path: src-tauri/target/release/bundle/nsis/*.exe
           - os: macos-latest
-            artifact-name: my-sticky-notes-release-macos
+            artifact-name: my-sticky-notes-release-macos-arm64
+            bundle-path: src-tauri/target/release/bundle/dmg/*.dmg
+          - os: macos-15-intel
+            artifact-name: my-sticky-notes-release-macos-x64
             bundle-path: src-tauri/target/release/bundle/dmg/*.dmg
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
