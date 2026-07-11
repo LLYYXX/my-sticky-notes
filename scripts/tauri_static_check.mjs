@@ -43,7 +43,7 @@ const checks = [
   ["renderer separates a note window from Settings", app.includes("noteId") && app.includes("isSettingsWindow") && views.includes("renderNoteWindow") && views.includes("renderSettings")],
   ["each sticky note is a runtime native window", rust.includes("create_note_window") && rust.includes("WebviewWindowBuilder::new") && rust.includes("NOTE_LABEL_PREFIX") && rust.includes("index.html?note=")],
   ["no persistent transparent desktop host remains", Array.isArray(config.app.windows) && config.app.windows.length === 0 && !styles.includes("notes-workspace") && !rust.includes("position_notes_window")],
-  ["only small note windows use transparent corners", rust.includes(".transparent(true)") && rust.includes(".inner_size(note_width(note), note_window_height(note))")],
+  ["note windows have no transparent native hit region", !rust.includes(".transparent(true)") && rust.includes(".inner_size(note_width(note), note_window_height(note))")],
   ["native note labels are safe and stable", rust.includes("fn note_label") && rust.includes("encode_query_component")],
   ["note positions are native coordinates", !state.includes("globalThis.innerWidth") && state.includes("x: Number.isFinite(note.x)") && rust.includes("remember_note_position")],
   ["previous host positions migrate once", rust.includes("migrate_legacy_host_coordinates") && rust.includes("legacy_host_origin") && rust.includes("STATE_VERSION: u16 = 9")],

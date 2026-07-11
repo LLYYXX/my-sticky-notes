@@ -550,7 +550,6 @@ fn create_note_window(app: &AppHandle, note: &Note) -> Result<(), String> {
     let window = WebviewWindowBuilder::new(app, label, url)
         .title("My Sticky Notes")
         .decorations(false)
-        .transparent(true)
         .resizable(false)
         .skip_taskbar(true)
         .always_on_top(note.pinned)

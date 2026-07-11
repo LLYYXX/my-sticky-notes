@@ -48,7 +48,7 @@ export function renderNoteWindow(note, { language, tr, paletteOpen }) {
   const collapseIcon = collapsed ? "add" : "minus";
   const collapseLabel = collapsed ? tr("expand") : tr("collapse");
   return `
-    <main class="note-window" aria-label="${escapeHtml(tr("appName"))}">
+    <main class="note-window" style="background:${theme.background}" aria-label="${escapeHtml(tr("appName"))}">
       <article class="note ${collapsed ? "collapsed" : ""} ${note.pinned ? "pinned" : ""}" style="${style}" data-note-id="${note.id}">
         <header class="note-bar" data-drag-note="${note.id}">
           <button class="color-dot" data-action="palette" aria-haspopup="true" aria-expanded="${paletteOpen}" title="${escapeHtml(theme.name[language])}">
