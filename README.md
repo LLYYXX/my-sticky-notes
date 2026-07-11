@@ -57,6 +57,10 @@ src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0_x64-setup.exe
 
 “检查更新”只在用户点击时访问固定的 GitHub Releases 来源。发现新版后，Windows 会下载对应的 NSIS 安装器，等待便签进程退出后静默启动安装；macOS 会下载并打开对应 DMG，系统可能仍要求确认或将应用拖入 Applications。该路径面向本项目的两位可信用户，不使用签名更新服务、后台轮询或额外常驻进程。详见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
 
+## 从旧版升级
+
+从 Tk/Python `0.2.x` 更新到 Tauri 时，Windows 安装器会隐藏式关闭旧的 `MyStickyNotes.exe` 并删除它的旧自启项。新版首次启动会从 `%LOCALAPPDATA%\MyStickyNotes\state.json` 导入旧便签；如果新版状态已经存在，则按便签 ID 一次性合并，旧状态文件会保留不动。旧版的“检查更新”也继续支持：Release 同时提供兼容安装器别名和 `SHA256SUMS.txt`。
+
 ## 跨平台
 
 `tauri.conf.json` 同时声明 Windows `nsis` 和 macOS `dmg` 打包目标。Release 会提供 Windows x64、macOS Apple Silicon 与 Intel 三种原生安装包。Windows 已完成真实运行时验证；macOS 仍需在真实 Mac 上完成托盘与自启行为验证。

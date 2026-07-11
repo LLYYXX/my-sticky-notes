@@ -5,6 +5,7 @@ import ctypes
 import json
 import os
 import shutil
+import struct
 import subprocess
 import time
 import winreg
@@ -338,6 +339,26 @@ def assert_memory_budget(working_set: float, note_count: int) -> None:
         )
 
 
+def assert_windows_gui_subsystem(exe: Path) -> int:
+    with exe.open("rb") as stream:
+        payload = stream.read(4096)
+    if payload[:2] != b"MZ":
+        raise AssertionError(f"expected a PE executable, got {exe}")
+    pe_offset = struct.unpack_from("<I", payload, 0x3C)[0]
+    optional_header = pe_offset + 24
+    if (
+        payload[pe_offset : pe_offset + 2] != b"PE"
+        or payload[pe_offset + 2 : pe_offset + 4] != bytes(2)
+    ):
+        raise AssertionError("PE header is invalid")
+    subsystem = struct.unpack_from("<H", payload, optional_header + 68)[0]
+    if subsystem != 2:
+        raise AssertionError(
+            f"release executable must use Windows GUI subsystem 2, got {subsystem}"
+        )
+    return subsystem
+
+
 def click_autostart_switch(pid: int) -> None:
     window = find_settings_window(pid)
     click(window["rect"], 0.89, 0.38)
@@ -356,7 +377,10 @@ def main() -> int:
     env = os.environ.copy()
     env["MY_STICKY_NOTES_DATA_DIR"] = str(args.state_dir.resolve())
     process = subprocess.Popen([str(exe)], env=env)
-    evidence: dict[str, object] = {"pid": process.pid}
+    evidence: dict[str, object] = {
+        "pid": process.pid,
+        "peSubsystem": assert_windows_gui_subsystem(exe),
+    }
     try:
         note = wait_for(lambda: assertion_probe(process.pid, "note"), timeout=10.0)
         evidence["initialNoteMode"] = note

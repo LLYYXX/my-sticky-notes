@@ -19,6 +19,7 @@ const requiredFiles = [
   "src/assets/app-icon.png",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
+  "src-tauri/nsis-hooks.nsh",
   "src-tauri/capabilities/default.json",
   "src-tauri/src/main.rs",
   "src-tauri/src/direct_update.rs",
@@ -49,6 +50,7 @@ const capabilities = JSON.parse(
 const config = JSON.parse(
   fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8"),
 );
+const nsisHooks = fs.readFileSync(path.join(root, "src-tauri/nsis-hooks.nsh"), "utf8");
 const tauriBuild = fs.existsSync(path.join(root, ".github/workflows/tauri-build.yml"))
   ? fs.readFileSync(path.join(root, ".github/workflows/tauri-build.yml"), "utf8")
   : "";
@@ -84,6 +86,7 @@ const checks = [
   ["collapsed state is persisted", state.includes("collapsed: Boolean")],
   ["per-note resize is persisted", app.includes("startResize") && app.includes("bodyHeight") && views.includes("note-resize")],
   ["Tauri state commands are wired", app.includes('invoke("load_state"') && app.includes('invoke("save_state"')],
+  ["legacy Tk state migrates and merges once", rust.includes("load_or_migrate_state") && rust.includes("legacy_state_path") && rust.includes("merge_legacy_state") && rust.includes("legacy_migration_marker_path")],
   ["state persistence replaces JSON atomically", rust.includes("write_json_atomically") && rust.includes("create_new(true)") && rust.includes("sync_all()") && rust.includes("fs::rename")],
   ["Tauri command failures degrade safely", app.includes("console.warn(`Tauri command failed:") && app.includes("return null;")],
   ["global pointer listeners are bound once", app.includes("pointerEventsBound") && app.includes("bindPointerEvents()")],
@@ -102,13 +105,15 @@ const checks = [
   ["GitHub release checks include prerelease assets", updates.includes("releases?per_page=20") && updates.includes("selectNewestRelease") && updates.includes("assetNames") && app.includes("checkGithubRelease") && updateTest.includes("no published release available")],
   ["direct updates are fixed-source and parent-exit safe", rust.includes("direct_update::download_and_install_update") && directUpdate.includes("RELEASE_DOWNLOAD_BASE") && directUpdate.includes("--proto") && directUpdate.includes("WaitForExit") && directUpdate.includes("-ArgumentList @('/S')") && directUpdate.includes("$installer.WaitForExit()") && directUpdate.includes("asset_matches_current_platform")],
   ["direct updates add no signed-updater runtime", !cargoToml.includes("tauri-plugin-updater") && !directUpdate.includes("tauri_plugin_updater")],
-  ["runtime probe covers settings, autostart, and runtime budgets", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("settingsWindow") && runtimeProbe.includes("working_set_mb") && runtimeProbe.includes("assert_memory_budget")],
+  ["runtime probe covers settings, autostart, memory, and GUI subsystem", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("settingsWindow") && runtimeProbe.includes("working_set_mb") && runtimeProbe.includes("assert_memory_budget") && runtimeProbe.includes("assert_windows_gui_subsystem")],
   ["Tauri v2 capability file covers both views", capabilities.identifier === "default" && capabilities.windows.includes("main") && capabilities.windows.includes("settings") && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
   ["settings page exists without a note settings section", views.includes("settings-window") && !views.includes("stayLightweight")],
   ["about source link opens in the default browser", views.includes('href="https://github.com/LLYYXX/my-sticky-notes" target="_blank"') && capabilities.permissions.includes("opener:default")],
   ["color palette exists", views.includes("palette-popover")],
   ["hidden popovers stay hidden", styles.includes("[hidden]")],
   ["Windows and macOS bundle targets exist", JSON.stringify(config.bundle.targets) === JSON.stringify(["nsis", "dmg"])],
+  ["Windows release does not open a console window", rust.includes('#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]')],
+  ["legacy installer closes the old application without a shell window", config.bundle.windows.nsis.installerHooks === "nsis-hooks.nsh" && nsisHooks.includes("taskkill.exe") && nsisHooks.includes("MyStickyNotes.exe") && nsisHooks.includes("DeleteRegValue") && !nsisHooks.includes("cmd.exe")],
   ["CI uses stable GitHub action majors", tauriBuild.includes("actions/checkout@v4") && tauriBuild.includes("actions/setup-node@v4") && tauriBuild.includes("actions/upload-artifact@v4")],
   ["Tauri CI validates Windows plus both Mac architectures", tauriBuild.includes("push:") && tauriBuild.includes("pull_request:") && tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("macos-15-intel") && tauriBuild.includes("cargo test --locked")],
   ["build workflows use a pnpm-compatible Node version", packageJson.engines?.node === ">=22.13" && tauriBuild.includes('node-version: "22"') && release.includes('node-version: "22"')],

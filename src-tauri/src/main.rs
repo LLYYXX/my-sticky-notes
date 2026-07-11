@@ -1,8 +1,11 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod direct_update;
 mod single_instance;
 
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashSet,
     env,
     fs::{self, OpenOptions},
     io::Write,
@@ -21,6 +24,8 @@ const STATE_VERSION: u16 = 8;
 const NOTES_HOST_MAX_WIDTH: f64 = 1120.0;
 const NOTES_HOST_MAX_HEIGHT: f64 = 760.0;
 const NOTES_HOST_MARGIN: i32 = 24;
+const LEGACY_APP_DIRECTORY: &str = "MyStickyNotes";
+const LEGACY_MIGRATION_MARKER: &str = ".legacy-tk-state-v1";
 static STATE_WRITE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,10 +125,13 @@ impl Default for AppState {
 
 #[tauri::command]
 fn load_state(app: AppHandle) -> Result<AppState, String> {
-    if let Some(state) = read_json(&state_path(&app)?)? {
-        return Ok(state);
+    let path = state_path(&app)?;
+    let legacy_path = configured_data_dir().is_none().then(legacy_state_path).flatten();
+    let (state, migrated) = load_or_migrate_state(&path, legacy_path.as_deref())?;
+    if migrated && state.settings.open_at_login {
+        let _ = app.autolaunch().enable();
     }
-    Ok(AppState::default())
+    Ok(state)
 }
 
 #[tauri::command]
@@ -161,7 +169,7 @@ fn set_always_on_top(app: AppHandle, pinned: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn read_json(path: &PathBuf) -> Result<Option<AppState>, String> {
+fn read_json(path: &Path) -> Result<Option<AppState>, String> {
     if !path.exists() {
         return Ok(None);
     }
@@ -169,6 +177,64 @@ fn read_json(path: &PathBuf) -> Result<Option<AppState>, String> {
     let mut state: AppState = serde_json::from_str(&payload).map_err(|error| error.to_string())?;
     state.version = STATE_VERSION;
     Ok(Some(state))
+}
+
+fn load_or_migrate_state(
+    state_path: &Path,
+    legacy_path: Option<&Path>,
+) -> Result<(AppState, bool), String> {
+    let current = read_json(state_path)?;
+    let marker_path = legacy_migration_marker_path(state_path);
+    if marker_path.exists() {
+        return Ok((current.unwrap_or_default(), false));
+    }
+    if let Some(legacy_path) = legacy_path.filter(|path| *path != state_path) {
+        if let Some(legacy) = read_json(legacy_path)? {
+            let state = current
+                .map(|current| merge_legacy_state(current, legacy.clone()))
+                .unwrap_or(legacy);
+            let payload = serde_json::to_vec_pretty(&state).map_err(|error| error.to_string())?;
+            write_json_atomically(state_path, &payload)?;
+            write_json_atomically(&marker_path, b"migrated\n")?;
+            return Ok((state, true));
+        }
+    }
+    Ok((current.unwrap_or_default(), false))
+}
+
+fn merge_legacy_state(mut current: AppState, legacy: AppState) -> AppState {
+    let current_was_empty = current.notes.is_empty();
+    let AppState {
+        settings: legacy_settings,
+        notes: legacy_notes,
+        ..
+    } = legacy;
+    let mut note_ids = current
+        .notes
+        .iter()
+        .map(|note| note.id.clone())
+        .collect::<HashSet<_>>();
+    for note in legacy_notes {
+        if note_ids.insert(note.id.clone()) {
+            current.notes.push(note);
+        }
+    }
+    if current_was_empty {
+        current.settings = legacy_settings;
+    } else {
+        current.settings.open_at_login |= legacy_settings.open_at_login;
+        if current.settings.language == default_language()
+            && legacy_settings.language != default_language()
+        {
+            current.settings.language = legacy_settings.language;
+        }
+    }
+    current.version = STATE_VERSION;
+    current
+}
+
+fn legacy_migration_marker_path(state_path: &Path) -> PathBuf {
+    state_path.with_file_name(LEGACY_MIGRATION_MARKER)
 }
 
 fn write_json_atomically(path: &Path, payload: &[u8]) -> Result<(), String> {
@@ -215,6 +281,18 @@ fn state_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn configured_data_dir() -> Option<PathBuf> {
     env::var_os("MY_STICKY_NOTES_DATA_DIR").map(PathBuf::from)
+}
+
+#[cfg(target_os = "windows")]
+fn legacy_state_path() -> Option<PathBuf> {
+    env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .map(|directory| directory.join(LEGACY_APP_DIRECTORY).join("state.json"))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn legacy_state_path() -> Option<PathBuf> {
+    None
 }
 
 fn show_main_window(app: &AppHandle) {
@@ -453,6 +531,127 @@ mod tests {
         std::fs::remove_file(&path).expect("cleanup");
         assert_eq!(state.version, STATE_VERSION);
         assert!(state.notes.is_empty());
+    }
+
+    #[test]
+    fn migrates_legacy_tk_state_when_tauri_state_is_absent() {
+        let directory = std::env::temp_dir().join(format!(
+            "my-sticky-notes-migration-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let state_path = directory.join("tauri").join("state.json");
+        let legacy_path = directory.join("MyStickyNotes").join("state.json");
+        std::fs::create_dir_all(legacy_path.parent().expect("legacy parent"))
+            .expect("create legacy directory");
+        std::fs::write(
+            &legacy_path,
+            r#"{
+              "version": 5,
+              "settings": {"open_at_login": true, "language": "en"},
+              "notes": [{
+                "id": "old-note",
+                "title": "old title",
+                "color": "mint",
+                "pinned": true,
+                "x": 140,
+                "y": 160,
+                "width": 330,
+                "height": 360,
+                "todos": [{"id": "old-todo", "text": "keep this", "completed": true, "order": 0}]
+              }]
+            }"#,
+        )
+        .expect("write legacy state");
+
+        let (state, migrated) = load_or_migrate_state(&state_path, Some(&legacy_path))
+            .expect("migrate legacy state");
+
+        assert!(migrated);
+        assert_eq!(state.version, STATE_VERSION);
+        assert!(state.settings.open_at_login);
+        assert_eq!(state.settings.language, "en");
+        assert_eq!(state.notes[0].id, "old-note");
+        assert_eq!(state.notes[0].color, "mint");
+        assert!(state.notes[0].pinned);
+        assert_eq!(state.notes[0].todos[0].text, "keep this");
+        assert!(state_path.exists());
+        std::fs::remove_dir_all(&directory).expect("cleanup migration directory");
+    }
+
+    #[test]
+    fn merges_legacy_tk_notes_once_when_tauri_state_already_exists() {
+        let directory = std::env::temp_dir().join(format!(
+            "my-sticky-notes-merge-migration-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let state_path = directory.join("tauri").join("state.json");
+        let legacy_path = directory.join("MyStickyNotes").join("state.json");
+        std::fs::create_dir_all(state_path.parent().expect("state parent"))
+            .expect("create state directory");
+        std::fs::create_dir_all(legacy_path.parent().expect("legacy parent"))
+            .expect("create legacy directory");
+        std::fs::write(
+            &state_path,
+            r#"{"version":8,"notes":[{"id":"new-note","todos":[]}],"settings":{"language":"zh-CN"}}"#,
+        )
+        .expect("write new state");
+        std::fs::write(
+            &legacy_path,
+            r#"{"version":5,"settings":{"open_at_login":true,"language":"en"},"notes":[{"id":"old-note","color":"coral","todos":[{"id":"old-todo","text":"old task","completed":false,"order":0}]}]}"#,
+        )
+        .expect("write legacy state");
+
+        let (merged, migrated) = load_or_migrate_state(&state_path, Some(&legacy_path))
+            .expect("merge legacy state");
+        let (reloaded, migrated_again) = load_or_migrate_state(&state_path, Some(&legacy_path))
+            .expect("do not merge twice");
+
+        assert!(migrated);
+        assert!(merged.settings.open_at_login);
+        assert_eq!(merged.notes.len(), 2);
+        assert!(merged.notes.iter().any(|note| note.id == "new-note"));
+        assert!(merged.notes.iter().any(|note| note.id == "old-note"));
+        assert!(!migrated_again);
+        assert_eq!(reloaded.notes.len(), 2);
+        std::fs::remove_dir_all(&directory).expect("cleanup merge migration directory");
+    }
+
+    #[test]
+    fn migration_marker_never_imports_legacy_state_a_second_time() {
+        let directory = std::env::temp_dir().join(format!(
+            "my-sticky-notes-migration-marker-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let state_path = directory.join("tauri").join("state.json");
+        let legacy_path = directory.join("MyStickyNotes").join("state.json");
+        std::fs::create_dir_all(legacy_path.parent().expect("legacy parent"))
+            .expect("create legacy directory");
+        std::fs::write(
+            &legacy_path,
+            r#"{"version":5,"notes":[{"id":"old-note","todos":[]}]}"#,
+        )
+        .expect("write legacy state");
+        std::fs::create_dir_all(state_path.parent().expect("state parent"))
+            .expect("create state directory");
+        std::fs::write(legacy_migration_marker_path(&state_path), b"migrated\n")
+            .expect("write migration marker");
+
+        let (state, migrated) = load_or_migrate_state(&state_path, Some(&legacy_path))
+            .expect("do not import legacy state twice");
+
+        assert!(!migrated);
+        assert!(state.notes.is_empty());
+        assert!(!state_path.exists());
+        std::fs::remove_dir_all(&directory).expect("cleanup marker directory");
     }
 
     #[test]

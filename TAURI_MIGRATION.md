@@ -81,20 +81,28 @@ On macOS the host downloads and opens the matching DMG. macOS may still require
 the user to approve the app or copy it into Applications; transparent in-place
 replacement is intentionally not claimed for an unsigned DMG.
 
+For the one-time Tk/Python to Tauri transition, the Windows NSIS pre-install
+hook closes the old `MyStickyNotes.exe` without opening a shell and removes its
+legacy Run-key entry. On first launch, Tauri imports
+`%LOCALAPPDATA%\MyStickyNotes\state.json` into its new data directory. If a
+new Tauri state was already created, it merges the old notes by ID once and
+writes a marker, while leaving the old file untouched. The Release additionally
+ships the old updater's installer-name alias and `SHA256SUMS.txt`, so an
+installed `0.2.x` app can verify and start this transition.
+
 The repository's `Tauri Build` workflow is the pre-release quality gate. It
 now runs on each `main` push and pull request for both Windows and macOS: each
 job uses the locked pnpm dependency graph, runs the frontend and Rust tests,
 builds the native bundle, and uploads it as a CI artifact. It does not create a
 GitHub Release or require any signing secret.
 
-`Release` is deliberately manual. It validates the matching JavaScript and
-Tauri versions, builds the same Windows and macOS native bundles, and uploads
-them to the GitHub Release tagged `v<package-version>`. This provides the exact
-release assets consumed by the direct updater without creating releases on
-ordinary pushes.
+`Release` can be run manually or by pushing a `v*` tag. It validates the
+matching JavaScript and Tauri versions, builds Windows plus both macOS native
+bundles, and uploads them to the GitHub Release tagged `v<package-version>`.
+Ordinary `main` pushes do not create releases.
 
 ## macOS
 
-The bundle target includes `dmg` and an `.icns` icon. A macOS runner or real
-Mac still needs to verify DMG generation, LaunchAgent autostart, tray behaviour
-and the dynamic settings window before macOS support can be called complete.
+The release workflow builds separate Apple Silicon and Intel DMGs. GitHub-hosted
+macOS runners verify bundle generation; a real Mac is still needed to verify
+LaunchAgent autostart, tray behaviour, and the dynamic settings window.
