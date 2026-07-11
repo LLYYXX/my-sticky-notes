@@ -1,3 +1,0 @@
-pyinstaller==6.21.0
-smol-nsis==0.0.16; platform_system == "Windows"
-pillow==12.3.0

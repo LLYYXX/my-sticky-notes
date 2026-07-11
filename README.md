@@ -48,7 +48,7 @@ python scripts\tauri_runtime_probe.py --skip-autostart
 Windows NSIS 安装包会生成在：
 
 ```text
-src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.1_x64-setup.exe
+src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0_x64-setup.exe
 ```
 
 已在 Windows 打包程序上验证：五张便签、托盘恢复、独立设置窗口、任务栏隔离、右上角工作区定位、重复启动退出和运行时内存预算。四次隔离探针中，五张便签为 32.5–72.2 MB 工作集，设置打开为 33.2–72.4 MB；预算分别为 220 MB 与 250 MB。
@@ -63,4 +63,4 @@ src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0-alpha.1_x64-setup.exe
 
 ## 许可
 
-[MIT License](LICENSE)。便签图标来自 Lucide，见 [assets/icons/LICENSE-lucide.txt](assets/icons/LICENSE-lucide.txt)。
+[MIT License](LICENSE)。便签图标来自 Lucide，见 [src/assets/icons/LICENSE-lucide.txt](src/assets/icons/LICENSE-lucide.txt)。

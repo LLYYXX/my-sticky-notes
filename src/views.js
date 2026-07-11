@@ -173,7 +173,7 @@ function renderAbout({ tr, status, updateInFlight, version }) {
         </div>
         <button class="primary" data-action="check-update" ${updateInFlight ? "disabled" : ""}>${escapeHtml(tr("checkNow"))}</button>
       </div>
-      <p class="source-link"><a href="https://github.com/LLYYXX/my-sticky-notes">github.com/LLYYXX/my-sticky-notes</a></p>
+      <p class="source-link"><a href="https://github.com/LLYYXX/my-sticky-notes" target="_blank" rel="noreferrer">github.com/LLYYXX/my-sticky-notes</a></p>
     </section>
   `;
 }

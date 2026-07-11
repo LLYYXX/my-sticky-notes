@@ -49,7 +49,7 @@ The current release executable was checked with an isolated five-note state:
 - settings: separately created `appWindow=true`, `toolWindow=false`;
 - tray left click restores notes; the tray menu opens settings and exits;
 - a second packaged launch exits with code 0 after activating the first window;
-- release build: `My Sticky Notes_0.3.0-alpha.1_x64-setup.exe` generated;
+- release build: `My Sticky Notes_0.3.0_x64-setup.exe` generated;
 - four isolated five-note launches: 32.5–72.2 MB working set; with Settings
   open: 33.2–72.4 MB. Windows/WebView working-set residency is bimodal on this
   machine, so this range is more representative than one cold-start sample.

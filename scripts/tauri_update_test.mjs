@@ -24,13 +24,13 @@ assert.throws(() => normalizeVersion("0.03.0"), /invalid release version/);
 {
   const result = await checkGithubRelease("0.3.0-alpha.0", async () => response([
     { tag_name: "v0.2.3", assets: [{ name: "My Sticky Notes_0.2.3_x64-setup.exe" }] },
-    { tag_name: "v0.3.0-alpha.1", assets: [{ name: "My Sticky Notes_0.3.0-alpha.1_x64-setup.exe" }] },
+    { tag_name: "v0.3.0", assets: [{ name: "My Sticky Notes_0.3.0_x64-setup.exe" }] },
     { draft: true, tag_name: "v9.0.0", assets: [{ name: "My Sticky Notes_9.0.0_x64-setup.exe" }] },
   ]));
   assert.equal(result.updateAvailable, true);
-  assert.equal(result.latestVersion, "0.3.0-alpha.1");
-  assert.equal(result.releaseTag, "v0.3.0-alpha.1");
-  assert.deepEqual(result.assetNames, ["My Sticky Notes_0.3.0-alpha.1_x64-setup.exe"]);
+  assert.equal(result.latestVersion, "0.3.0");
+  assert.equal(result.releaseTag, "v0.3.0");
+  assert.deepEqual(result.assetNames, ["My Sticky Notes_0.3.0_x64-setup.exe"]);
 }
 
 await assert.rejects(

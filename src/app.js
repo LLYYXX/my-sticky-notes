@@ -16,7 +16,7 @@ const params = new URLSearchParams(window.location.search);
 const isSettingsWindow = params.get("settings") === "1";
 const previewCollapsed = params.get("collapsed") === "1";
 const previewPalette = params.get("palette") === "1";
-const APP_VERSION = "v0.3.0-alpha.1";
+const APP_VERSION = "v0.3.0";
 
 let state = normalizeState();
 let activeSettingsPage = params.get("settingsPage") === "about" ? "about" : "general";

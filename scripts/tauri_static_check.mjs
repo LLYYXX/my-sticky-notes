@@ -15,6 +15,7 @@ const requiredFiles = [
   "src/assets/icons/checkbox-on.png",
   "src/assets/icons/delete.png",
   "src/assets/icons/pin.png",
+  "src/assets/icons/LICENSE-lucide.txt",
   "src/assets/app-icon.png",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
@@ -104,6 +105,7 @@ const checks = [
   ["runtime probe covers settings, autostart, and runtime budgets", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("settingsWindow") && runtimeProbe.includes("working_set_mb") && runtimeProbe.includes("assert_memory_budget")],
   ["Tauri v2 capability file covers both views", capabilities.identifier === "default" && capabilities.windows.includes("main") && capabilities.windows.includes("settings") && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
   ["settings page exists without a note settings section", views.includes("settings-window") && !views.includes("stayLightweight")],
+  ["about source link opens in the default browser", views.includes('href="https://github.com/LLYYXX/my-sticky-notes" target="_blank"') && capabilities.permissions.includes("opener:default")],
   ["color palette exists", views.includes("palette-popover")],
   ["hidden popovers stay hidden", styles.includes("[hidden]")],
   ["Windows and macOS bundle targets exist", JSON.stringify(config.bundle.targets) === JSON.stringify(["nsis", "dmg"])],
@@ -111,6 +113,8 @@ const checks = [
   ["Tauri CI validates both supported desktop platforms", tauriBuild.includes("push:") && tauriBuild.includes("pull_request:") && tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("cargo test --locked")],
   ["Tauri build workflow uses locked pnpm install", tauriBuild.includes("corepack enable") && tauriBuild.includes("pnpm install --frozen-lockfile") && tauriBuild.includes("pnpm run tauri:build")],
   ["frontend package manager and Tauri CLI are pinned", packageJson.packageManager === "pnpm@11.7.0" && packageJson.devDependencies?.["@tauri-apps/cli"] === "2.11.4"],
+  ["release versions stay aligned", packageJson.version === config.version && app.includes(`const APP_VERSION = "v${packageJson.version}"`)],
+  ["active icon license is retained", fs.existsSync(path.join(root, "src/assets/icons/LICENSE-lucide.txt")) && fs.readFileSync(path.join(root, "README.md"), "utf8").includes("src/assets/icons/LICENSE-lucide.txt")],
   ["manual release publishes both native bundles", release.includes("workflow_dispatch") && release.includes("windows-latest") && release.includes("macos-latest") && release.includes("cargo test --locked") && release.includes("gh release upload") && !release.includes("build.ps1")],
 ];
 

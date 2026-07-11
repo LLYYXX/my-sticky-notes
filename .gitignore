@@ -1,15 +1,7 @@
-# Python
+# Local Python migration leftovers
 __pycache__/
 *.py[cod]
-*.pyd
 *.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
-# Virtual environments
 .venv/
 venv/
 env/
@@ -19,7 +11,6 @@ env/
 build/
 dist/
 release/
-*.spec
 node_modules/
 .npm-cache/
 .pnpm-store/
