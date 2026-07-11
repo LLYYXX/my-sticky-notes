@@ -115,7 +115,7 @@ const checks = [
   ["frontend package manager and Tauri CLI are pinned", packageJson.packageManager === "pnpm@11.7.0" && packageJson.devDependencies?.["@tauri-apps/cli"] === "2.11.4"],
   ["release versions stay aligned", packageJson.version === config.version && app.includes(`const APP_VERSION = "v${packageJson.version}"`)],
   ["active icon license is retained", fs.existsSync(path.join(root, "src/assets/icons/LICENSE-lucide.txt")) && fs.readFileSync(path.join(root, "README.md"), "utf8").includes("src/assets/icons/LICENSE-lucide.txt")],
-  ["manual release publishes both native bundles", release.includes("workflow_dispatch") && release.includes("windows-latest") && release.includes("macos-latest") && release.includes("cargo test --locked") && release.includes("gh release upload") && !release.includes("build.ps1")],
+  ["release publishes from manual dispatch or a version tag", release.includes("workflow_dispatch") && release.includes("tags:") && release.includes('"v*"') && release.includes("windows-latest") && release.includes("macos-latest") && release.includes("cargo test --locked") && release.includes("gh release upload") && !release.includes("build.ps1")],
 ];
 
 const failures = checks.filter(([, passed]) => !passed).map(([name]) => name);
