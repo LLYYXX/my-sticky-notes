@@ -21,8 +21,10 @@ jobs:
         include:
           - os: windows-latest
             artifact-name: my-sticky-notes-release-windows
+            bundle-path: src-tauri/target/release/bundle/nsis/*.exe
           - os: macos-latest
             artifact-name: my-sticky-notes-release-macos
+            bundle-path: src-tauri/target/release/bundle/dmg/*.dmg
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -48,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
-          path: src-tauri/target/release/bundle/**
+          path: ${{ matrix.bundle-path }}
           if-no-files-found: error
 
   publish:
@@ -71,7 +73,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            while IFS= read -r asset; do
+              gh release delete-asset "$TAG" "$asset" --yes
+            done < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+          else
             gh release create "$TAG" --draft --title "My Sticky Notes $TAG" --generate-notes
           fi
           mapfile -d '' assets < <(find release-assets -type f -print0)
