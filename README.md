@@ -1,70 +1,82 @@
 # My Sticky Notes
 
-一个本地优先、Todo 导向的极简桌面便签，使用 Tauri 2 / Rust 实现 Windows 与 macOS 桌面壳层。
+一个本地优先、Todo 导向的极简桌面便签，使用 Tauri 2、Rust 和原生
+WebView 实现，支持 Windows 与 macOS。
 
-## 当前实现
+## Current behavior
 
-- 多张无标题便签；每张可独立使用九种主题色。
-- Todo 支持新增、编辑、完成、删除和长文本换行。
-- `＋ / 删除 / 置顶 / 收起` 位于便签标题栏；收起只保留长条和按钮。
-- 点击左侧颜色圆点展开九色面板；右下角可调整便签尺寸。
-- 默认按显示器工作区的右上角定位，尺寸按系统 DPI 计算，不依赖单台电脑的固定像素坐标。
-- 便签窗口始终不出现在任务栏；托盘左键恢复便签，菜单可打开设置或退出。
-- 设置是按需创建的独立原生窗口，因此只有打开设置时才会出现任务栏图标。
-- 同一用户会话只保留一个应用实例；重复启动会恢复首实例，不会再创建额外渲染器。
-- 设置提供登录后启动与中英文切换；关于页显示当前版本与开源地址。
-- 数据只保存在本机 JSON 文件中，不依赖服务端。
+- 多张无标题便签；每张是独立的无边框原生窗口，而非一个透明桌面覆盖层。
+- 九种独立主题色，待办可新增、编辑、完成、删除，并会在边缘自动换行。
+- 标题栏操作顺序为 `+ / 删除 / 置顶 / -`；`-` 收起内容，右下角可调整大小。
+- 新便签默认位于主显示器工作区右上角，并按窗口原生坐标保存位置。
+- 便签不显示在任务栏；托盘左键恢复全部便签，菜单可打开设置或退出。
+- 设置为按需创建的正常窗口，包含登录后启动、中文/English 与关于/更新。
+- 单实例：重复启动只会激活已有进程；多张便签窗口仍属于同一个应用进程。
+- 所有数据保存在本地 JSON；不需要账号、云端或后台轮询。
 
-## 运行时结构
+## Architecture
 
 ```text
-main notes webview      仅承载全部便签，透明、无任务栏入口
-settings webview        从托盘按需创建，关闭即销毁
-Rust host               托盘、窗口定位、置顶、自启、状态读写、打包
-plain HTML/CSS/JS       无框架运行时与额外 UI 依赖
+one application process
+├─ note-<id> native windows   one small window per visible sticky note
+├─ Settings native window     created only from the tray
+├─ tray icon                  restore all / settings / quit
+└─ Rust state store           one JSON state file, one instance guard
 ```
 
-这避免了“每张便签一个 WebView”的内存线性增长，同时也避免设置页一直常驻。
+This model deliberately avoids a desktop-sized transparent WebView. A transparent
+surface is still an OS hit-test rectangle, so it can block clicks even when its
+CSS content is empty. Individual note windows keep the desktop usable between
+notes.
 
-## 开发
+## Development
 
-要求：Node.js 22.13+、pnpm 11、Rust stable，以及平台对应的 Tauri 系统依赖。
+Requirements: Node.js 22.13+, pnpm 11, Rust stable, and Tauri platform
+dependencies.
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm run check:frontend
-cargo check --manifest-path src-tauri\Cargo.toml
 cargo test --manifest-path src-tauri\Cargo.toml
 pnpm run tauri:dev
 ```
 
-## 验证与打包
+## Verification and packaging
 
 ```powershell
 pnpm run tauri:build
-python scripts\tauri_runtime_probe.py --skip-autostart
+python scripts\tauri_runtime_probe.py --skip-autostart --note-count 2
+python scripts\tauri_single_instance_probe.py
 ```
 
-Windows NSIS 安装包会生成在：
+The Windows installer is produced at:
 
 ```text
-src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.0_x64-setup.exe
+src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.1_x64-setup.exe
 ```
 
-已在 Windows 打包程序上验证：五张便签、托盘恢复、独立设置窗口、任务栏隔离、右上角工作区定位、重复启动退出和运行时内存预算。四次隔离探针中，五张便签为 32.5–72.2 MB 工作集，设置打开为 33.2–72.4 MB；预算分别为 220 MB 与 250 MB。
+The runtime probe uses an isolated state directory and an independent
+single-instance port, so it does not touch personal notes or a currently running
+copy of the app.
 
-## 自动更新
+## Updates and legacy migration
 
-“检查更新”只在用户点击时访问固定的 GitHub Releases 来源。发现新版后，Windows 会下载对应的 NSIS 安装器，等待便签进程退出后静默启动安装；macOS 会下载并打开对应 DMG，系统可能仍要求确认或将应用拖入 Applications。该路径面向本项目的两位可信用户，不使用签名更新服务、后台轮询或额外常驻进程。详见 [TAURI_MIGRATION.md](TAURI_MIGRATION.md)。
+Check update contacts the fixed GitHub Releases source only when requested.
+Windows downloads the matching NSIS installer and starts it after the app exits;
+macOS downloads and opens the matching DMG. The project is distributed to two
+trusted users and intentionally does not add a signed updater service or a
+background update helper.
 
-## 从旧版升级
+When moving from Tk/Python `0.2.x`, the installer silently closes the old
+`MyStickyNotes.exe` and removes its legacy startup entry. On first Tauri launch,
+the app imports `%LOCALAPPDATA%\MyStickyNotes\state.json` once and preserves the
+old file. The Release contains the installer alias and `SHA256SUMS.txt` needed
+by the old updater.
 
-从 Tk/Python `0.2.x` 更新到 Tauri 时，Windows 安装器会隐藏式关闭旧的 `MyStickyNotes.exe` 并删除它的旧自启项。新版首次启动会从 `%LOCALAPPDATA%\MyStickyNotes\state.json` 导入旧便签；如果新版状态已经存在，则按便签 ID 一次性合并，旧状态文件会保留不动。旧版的“检查更新”也继续支持：Release 同时提供兼容安装器别名和 `SHA256SUMS.txt`。
+See [TAURI_MIGRATION.md](TAURI_MIGRATION.md) for migration, update, and
+verification details.
 
-## 跨平台
+## License
 
-`tauri.conf.json` 同时声明 Windows `nsis` 和 macOS `dmg` 打包目标。Release 会提供 Windows x64、macOS Apple Silicon 与 Intel 三种原生安装包。Windows 已完成真实运行时验证；macOS 仍需在真实 Mac 上完成托盘与自启行为验证。
-
-## 许可
-
-[MIT License](LICENSE)。便签图标来自 Lucide，见 [src/assets/icons/LICENSE-lucide.txt](src/assets/icons/LICENSE-lucide.txt)。
+[MIT License](LICENSE). The note icons are from Lucide; see
+[src/assets/icons/LICENSE-lucide.txt](src/assets/icons/LICENSE-lucide.txt).

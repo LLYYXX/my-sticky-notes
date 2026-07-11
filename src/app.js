@@ -8,22 +8,22 @@ import {
   sanitizeState,
   toggleNoteCollapsed,
 } from "./state.js";
-import { renderNotes, renderSettings } from "./views.js";
+import { renderNoteWindow, renderSettings } from "./views.js";
 import { checkGithubRelease } from "./updates.js";
 
 const app = document.querySelector("#app");
 const params = new URLSearchParams(window.location.search);
+const noteId = params.get("note");
 const isSettingsWindow = params.get("settings") === "1";
-const previewCollapsed = params.get("collapsed") === "1";
-const previewPalette = params.get("palette") === "1";
-const APP_VERSION = "v0.3.0";
+const APP_VERSION = "v0.3.1";
 
 let state = normalizeState();
 let activeSettingsPage = params.get("settingsPage") === "about" ? "about" : "general";
 let updateStatus = "";
 let updateInFlight = false;
-let pointerSession = null;
-let pointerEventsBound = false;
+let paletteOpen = false;
+let resizeSession = null;
+let resizeFrame = null;
 
 function language() {
   return state.settings.language === "en" ? "en" : "zh-CN";
@@ -31,6 +31,10 @@ function language() {
 
 function tr(key) {
   return copy[language()][key] ?? copy["zh-CN"][key] ?? key;
+}
+
+function currentNote() {
+  return noteId ? state.notes.find((note) => note.id === noteId) ?? null : null;
 }
 
 async function invoke(command, payload) {
@@ -44,34 +48,55 @@ async function invoke(command, payload) {
   }
 }
 
+function applySnapshot(snapshot) {
+  if (snapshot?.notes && snapshot?.settings) {
+    state = normalizeState(snapshot);
+  }
+}
+
 async function load() {
   const remoteState = await invoke("load_state");
   if (remoteState) {
-    state = normalizeState(remoteState);
+    applySnapshot(remoteState);
   } else {
     const local = localStorage.getItem("my-sticky-notes-tauri-state");
     state = normalizeState(local ? JSON.parse(local) : {});
   }
   const nativeOpenAtLogin = await invoke("is_open_at_login_enabled");
-  if (typeof nativeOpenAtLogin === "boolean") {
-    state.settings.openAtLogin = nativeOpenAtLogin;
-  }
+  if (typeof nativeOpenAtLogin === "boolean") state.settings.openAtLogin = nativeOpenAtLogin;
   render();
 }
 
-function persist() {
-  state = sanitizeState(state);
-  localStorage.setItem("my-sticky-notes-tauri-state", JSON.stringify(state));
-  void invoke("save_state", { state });
+function saveFallback() {
+  localStorage.setItem("my-sticky-notes-tauri-state", JSON.stringify(sanitizeState(state)));
 }
 
-function update(mutator) {
-  mutator(state);
-  persist();
+async function saveCurrentNote() {
+  const note = currentNote();
+  if (!note) return;
+  saveFallback();
+  const snapshot = await invoke("save_note", { note });
+  applySnapshot(snapshot);
+}
+
+async function updateCurrentNote(mutator) {
+  const note = currentNote();
+  if (!note) return;
+  mutator(note, state);
+  await saveCurrentNote();
+  render();
+}
+
+async function updateSettings(mutator) {
+  mutator(state.settings);
+  saveFallback();
+  const snapshot = await invoke("save_settings", { settings: state.settings });
+  applySnapshot(snapshot);
   render();
 }
 
 function render() {
+  const note = currentNote();
   app.innerHTML = isSettingsWindow
     ? renderSettings(state, {
       activePage: activeSettingsPage,
@@ -81,15 +106,13 @@ function render() {
       updateInFlight,
       version: APP_VERSION,
     })
-    : renderNotes(state, {
-      language: language(),
-      tr,
-      previewCollapsed,
-      previewPalette,
-    });
+    : note
+      ? renderNoteWindow(note, { language: language(), tr, paletteOpen })
+      : "";
   document.body.classList.toggle("settings-context", isSettingsWindow);
+  document.body.classList.toggle("note-context", Boolean(note) && !isSettingsWindow);
   bind();
-  if (!isSettingsWindow) syncNoteWindow();
+  if (note && !isSettingsWindow) queueFitNoteWindow();
 }
 
 function bind() {
@@ -100,12 +123,14 @@ function bind() {
     });
   });
   app.querySelectorAll("[data-language]").forEach((button) => {
-    button.addEventListener("click", () => update((draft) => {
-      draft.settings.language = button.dataset.language;
-    }));
+    button.addEventListener("click", () => {
+      void updateSettings((settings) => {
+        settings.language = button.dataset.language;
+      });
+    });
   });
   app.querySelectorAll("[data-toggle]").forEach((button) => {
-    button.addEventListener("click", () => toggleSetting(button.dataset.toggle));
+    button.addEventListener("click", () => void toggleSetting(button.dataset.toggle));
   });
   app.querySelectorAll("[data-action]").forEach((element) => {
     element.addEventListener("click", handleAction);
@@ -114,11 +139,13 @@ function bind() {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const value = String(new FormData(form).get("todo") || "").trim();
-      if (value) update((draft) => addTodoToNote(draft, form.dataset.noteId, value));
+      if (value) {
+        void updateCurrentNote((note) => addTodoToNote({ notes: [note] }, note.id, value));
+      }
     });
   });
   app.querySelectorAll("[data-edit-todo]").forEach((span) => {
-    span.addEventListener("blur", () => updateTodoText(span));
+    span.addEventListener("blur", () => void updateTodoText(span));
     span.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -132,63 +159,65 @@ function bind() {
   app.querySelectorAll("[data-resize-note]").forEach((button) => {
     button.addEventListener("pointerdown", startResize);
   });
-  bindPointerEvents();
+  window.onpointermove = moveResize;
+  window.onpointerup = stopResize;
 }
 
 async function toggleSetting(key) {
   if (key !== "openAtLogin") return;
   const requested = !Boolean(state.settings.openAtLogin);
   const applied = await invoke("set_open_at_login", { enabled: requested });
-  update((draft) => {
-    draft.settings.openAtLogin = typeof applied === "boolean" ? applied : requested;
-  });
+  state.settings.openAtLogin = typeof applied === "boolean" ? applied : requested;
+  saveFallback();
+  render();
 }
 
-function updateTodoText(span) {
+async function updateTodoText(span) {
   const nextText = span.textContent.trim();
-  update((draft) => {
-    const note = findNote(draft, span.dataset.noteId);
+  await updateCurrentNote((note) => {
     const todo = note.todos.find((item) => item.id === span.dataset.editTodo);
     if (todo) todo.text = nextText;
   });
 }
 
-function handleAction(event) {
+async function handleAction(event) {
   const action = event.currentTarget.dataset.action;
-  const noteId = event.currentTarget.dataset.noteId;
   if (action === "palette") {
-    const note = app.querySelector(`[data-note-id="${noteId}"]`);
-    const popover = note?.querySelector(".palette-popover");
-    if (popover) popover.hidden = !popover.hidden;
+    paletteOpen = !paletteOpen;
+    render();
     return;
   }
   if (action === "check-update") {
     void checkForUpdate();
     return;
   }
-  update((draft) => {
-    if (action === "new-from-note") {
-      const source = findNote(draft, noteId);
-      draft.notes.push({
-        ...createDefaultNote(draft.notes.length, createId),
-        x: source.x + 28,
-        y: source.y + 28,
-      });
+  if (action === "new-from-note") {
+    const source = currentNote();
+    if (!source) return;
+    const note = createDefaultNote(state.notes.length, createId);
+    note.x = Number.isFinite(source.x) ? source.x + 28 : null;
+    note.y = Number.isFinite(source.y) ? source.y + 32 : null;
+    const snapshot = await invoke("create_note", { note });
+    applySnapshot(snapshot);
+    return;
+  }
+  if (action === "delete-note") {
+    const snapshot = await invoke("delete_note", { noteId });
+    applySnapshot(snapshot);
+    return;
+  }
+  await updateCurrentNote((note) => {
+    if (action === "collapse-note") toggleNoteCollapsed({ notes: [note] }, note.id);
+    if (action === "pin-note") note.pinned = !note.pinned;
+    if (action === "set-color") {
+      note.color = event.currentTarget.dataset.color;
+      paletteOpen = false;
     }
-    if (action === "collapse-note") toggleNoteCollapsed(draft, noteId);
-    if (action === "pin-note") findNote(draft, noteId).pinned = !findNote(draft, noteId).pinned;
-    if (action === "delete-note") {
-      draft.notes = draft.notes.filter((note) => note.id !== noteId);
-      if (draft.notes.length === 0) draft.notes.push(createDefaultNote(0, createId));
-    }
-    if (action === "set-color") findNote(draft, noteId).color = event.currentTarget.dataset.color;
     if (action === "toggle-todo") {
-      const note = findNote(draft, noteId);
       const todo = note.todos.find((item) => item.id === event.currentTarget.dataset.todoId);
       if (todo) todo.completed = !todo.completed;
     }
     if (action === "delete-todo") {
-      const note = findNote(draft, noteId);
       note.todos = note.todos.filter((todo) => todo.id !== event.currentTarget.dataset.todoId);
     }
   });
@@ -205,10 +234,7 @@ async function checkForUpdate() {
       updateStatus = `${tr("updateDownloading")} v${result.latestVersion}`;
       render();
       const started = await invoke("download_and_install_update", {
-        request: {
-          tag: result.releaseTag,
-          assetNames: result.assetNames,
-        },
+        request: { tag: result.releaseTag, assetNames: result.assetNames },
       });
       updateStatus = started === true ? tr("updateInstalling") : tr("updateInstallFailed");
     } else {
@@ -225,74 +251,71 @@ async function checkForUpdate() {
 
 function startDrag(event) {
   if (event.target.closest("button, input, [contenteditable='true']")) return;
-  const note = findNote(state, event.currentTarget.dataset.dragNote);
-  pointerSession = {
-    kind: "drag",
-    id: note.id,
-    startX: event.clientX,
-    startY: event.clientY,
-    noteX: note.x,
-    noteY: note.y,
-  };
-  event.currentTarget.setPointerCapture(event.pointerId);
+  void invoke("start_note_dragging");
 }
 
 function startResize(event) {
   event.preventDefault();
   event.stopPropagation();
-  const note = findNote(state, event.currentTarget.dataset.resizeNote);
-  const element = app.querySelector(`[data-note-id="${note.id}"]`);
-  const bodyHeight = element?.querySelector(".note-body")?.offsetHeight ?? 164;
-  pointerSession = {
-    kind: "resize",
-    id: note.id,
+  const note = currentNote();
+  const element = app.querySelector("[data-note-id]");
+  if (!note || !element) return;
+  resizeSession = {
     startX: event.clientX,
     startY: event.clientY,
     width: note.width,
-    bodyHeight,
+    bodyHeight: note.bodyHeight ?? element.querySelector(".note-body")?.offsetHeight ?? 164,
   };
   event.currentTarget.setPointerCapture(event.pointerId);
 }
 
-function movePointer(event) {
-  if (!pointerSession) return;
-  const note = findNote(state, pointerSession.id);
-  const element = app.querySelector(`[data-note-id="${note.id}"]`);
-  if (!element) return;
-  if (pointerSession.kind === "drag") {
-    const maxX = Math.max(8, window.innerWidth - element.offsetWidth - 8);
-    const maxY = Math.max(8, window.innerHeight - element.offsetHeight - 8);
-    note.x = clamp(pointerSession.noteX + event.clientX - pointerSession.startX, 8, maxX);
-    note.y = clamp(pointerSession.noteY + event.clientY - pointerSession.startY, 8, maxY);
-    element.style.left = `${note.x}px`;
-    element.style.top = `${note.y}px`;
-    return;
-  }
-  note.width = clamp(pointerSession.width + event.clientX - pointerSession.startX, 260, Math.max(260, window.innerWidth - note.x - 8));
-  note.bodyHeight = Math.max(128, pointerSession.bodyHeight + event.clientY - pointerSession.startY);
-  element.style.width = `${note.width}px`;
+function moveResize(event) {
+  if (!resizeSession) return;
+  const note = currentNote();
+  const element = app.querySelector("[data-note-id]");
+  if (!note || !element) return;
+  note.width = clamp(resizeSession.width + event.clientX - resizeSession.startX, 280, 720);
+  note.bodyHeight = Math.max(128, resizeSession.bodyHeight + event.clientY - resizeSession.startY);
   element.style.setProperty("--note-body-height", `${note.bodyHeight}px`);
+  queueResizePreview();
 }
 
-function stopPointer() {
-  if (!pointerSession) return;
-  pointerSession = null;
-  persist();
+function queueResizePreview() {
+  if (resizeFrame !== null) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = null;
+    const note = currentNote();
+    if (note) {
+      void invoke("resize_note_preview", {
+        noteId: note.id,
+        width: note.width,
+        bodyHeight: note.bodyHeight,
+      });
+    }
+  });
+}
+
+function stopResize() {
+  if (!resizeSession) return;
+  resizeSession = null;
+  void saveCurrentNote();
+}
+
+function queueFitNoteWindow() {
+  requestAnimationFrame(() => {
+    const note = currentNote();
+    const element = app.querySelector("[data-note-id]");
+    if (note && element) {
+      void invoke("fit_note_window", {
+        noteId: note.id,
+        height: Math.ceil(element.getBoundingClientRect().height),
+      });
+    }
+  });
 }
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
-}
-
-function syncNoteWindow() {
-  void invoke("set_always_on_top", { pinned: state.notes.some((note) => note.pinned) });
-}
-
-function bindPointerEvents() {
-  if (pointerEventsBound || isSettingsWindow) return;
-  pointerEventsBound = true;
-  window.addEventListener("pointermove", movePointer);
-  window.addEventListener("pointerup", stopPointer);
 }
 
 load();

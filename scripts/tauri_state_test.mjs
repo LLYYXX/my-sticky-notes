@@ -13,7 +13,7 @@ const ids = (prefix) => `${prefix}-${++sequence}`;
 
 {
   const state = normalizeState({}, ids);
-  assert.equal(state.version, 8);
+  assert.equal(state.version, 9);
   assert.equal(state.settings.language, "zh-CN");
   assert.equal(state.notes.length, 1);
   assert.equal(state.notes[0].color, "yellow");
@@ -21,39 +21,19 @@ const ids = (prefix) => `${prefix}-${++sequence}`;
 }
 
 {
-  const previousWidth = globalThis.innerWidth;
-  globalThis.innerWidth = 1600;
   const note = createDefaultNote(0, ids);
-  assert.equal(note.x, 1240);
+  assert.equal(note.x, null);
+  assert.equal(note.y, null);
   const normalized = normalizeState({ notes: [{ id: "n", x: null, todos: [] }] }, ids);
-  assert.equal(normalized.notes[0].x, 1240);
-  if (previousWidth === undefined) {
-    delete globalThis.innerWidth;
-  } else {
-    globalThis.innerWidth = previousWidth;
-  }
+  assert.equal(normalized.notes[0].x, null);
 }
 
 {
-  const previousWidth = globalThis.innerWidth;
-  const previousHeight = globalThis.innerHeight;
-  globalThis.innerWidth = 1134;
-  globalThis.innerHeight = 768;
   const normalized = normalizeState({
     notes: [{ id: "legacy-offscreen", x: 2109, y: -9, width: 446, height: 584, todos: [] }],
   }, ids);
-  assert.equal(normalized.notes[0].x, 680);
-  assert.equal(normalized.notes[0].y, 8);
-  if (previousWidth === undefined) {
-    delete globalThis.innerWidth;
-  } else {
-    globalThis.innerWidth = previousWidth;
-  }
-  if (previousHeight === undefined) {
-    delete globalThis.innerHeight;
-  } else {
-    globalThis.innerHeight = previousHeight;
-  }
+  assert.equal(normalized.notes[0].x, 2109);
+  assert.equal(normalized.notes[0].y, -9);
 }
 
 {

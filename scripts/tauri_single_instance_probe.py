@@ -86,6 +86,7 @@ def main() -> int:
     reset_state(args.state_dir)
     environment = os.environ.copy()
     environment["MY_STICKY_NOTES_DATA_DIR"] = str(args.state_dir.resolve())
+    environment["MY_STICKY_NOTES_INSTANCE_PORT"] = "45421"
     first = subprocess.Popen([str(exe)], env=environment)
     second: subprocess.Popen[object] | None = None
     evidence: dict[str, object] = {"firstPid": first.pid}

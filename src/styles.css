@@ -10,8 +10,6 @@
 }
 
 body {
-  min-width: 100vw;
-  min-height: 100vh;
   margin: 0;
   overflow: hidden;
   background: transparent;
@@ -50,21 +48,15 @@ input:focus-visible,
   border: 0;
 }
 
-.notes-workspace,
-.notes-layer {
+body.note-context,
+.note-window {
   width: 100vw;
-  height: 100vh;
-}
-
-.notes-layer {
-  position: relative;
-  pointer-events: none;
 }
 
 .note {
-  position: absolute;
-  pointer-events: auto;
-  min-width: 260px;
+  position: relative;
+  width: var(--note-width);
+  min-width: 0;
   overflow: visible;
   border: 1px solid var(--note-border);
   border-radius: 8px;
@@ -240,19 +232,15 @@ input:focus-visible,
 }
 
 .palette-popover {
-  position: absolute;
-  z-index: 10;
-  top: 36px;
-  left: 7px;
   display: grid;
   grid-template-columns: repeat(3, minmax(82px, 1fr));
   gap: 4px;
-  width: min(292px, calc(100% - 14px));
+  width: calc(100% - 14px);
+  margin: 7px 7px 0;
   padding: 7px;
   border: 1px solid var(--note-border);
   border-radius: 8px;
-  background: var(--note-bg);
-  box-shadow: 0 8px 18px rgba(27, 22, 11, 0.18);
+  background: var(--note-input);
 }
 
 .palette-popover button {

@@ -1,4 +1,4 @@
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 
 export const palette = {
   yellow: {
@@ -190,8 +190,8 @@ export function createDefaultNote(index = 0, idFactory = createId) {
     color: "yellow",
     pinned: false,
     collapsed: false,
-    x: defaultNoteX(index),
-    y: 38 + index * 32,
+    x: null,
+    y: null,
     width: 340,
     bodyHeight: null,
     todos: [createDefaultTodo(0, idFactory), createDefaultTodo(1, idFactory)],
@@ -214,7 +214,7 @@ export function normalizeState(raw = {}, idFactory = createId) {
 
 export function normalizeNote(note = {}, index = 0, idFactory = createId) {
   const color = palette[note.color] ? note.color : "yellow";
-  const width = Math.max(280, numberOr(note.width, 340));
+  const width = clamp(numberOr(note.width, 340), 280, 720);
   const bodyHeight = Number.isFinite(note.bodyHeight)
     ? Math.max(128, Math.round(note.bodyHeight))
     : null;
@@ -223,8 +223,8 @@ export function normalizeNote(note = {}, index = 0, idFactory = createId) {
     color,
     pinned: Boolean(note.pinned),
     collapsed: Boolean(note.collapsed),
-    x: clampToViewportX(numberOr(note.x, defaultNoteX(index, width)), width),
-    y: clampToViewportY(numberOr(note.y, 38 + index * 32), estimatedNoteHeight(bodyHeight)),
+    x: Number.isFinite(note.x) ? Math.round(note.x) : null,
+    y: Number.isFinite(note.y) ? Math.round(note.y) : null,
     width,
     bodyHeight,
     todos: Array.isArray(note.todos)
@@ -276,28 +276,6 @@ export function findNote(state, noteId) {
 
 function numberOr(value, fallback) {
   return Number.isFinite(value) ? value : fallback;
-}
-
-function defaultNoteX(index, width = 340) {
-  const viewportWidth = Number.isFinite(globalThis.innerWidth) ? globalThis.innerWidth : 1120;
-  return Math.max(24, viewportWidth - width - 20 - index * 28);
-}
-
-function clampToViewportX(value, width) {
-  const viewportWidth = Number.isFinite(globalThis.innerWidth) ? globalThis.innerWidth : 1120;
-  const maxX = Math.max(8, viewportWidth - width - 8);
-  return clamp(value, 8, maxX);
-}
-
-function clampToViewportY(value, height) {
-  const viewportHeight = Number.isFinite(globalThis.innerHeight) ? globalThis.innerHeight : 760;
-  const visibleHeight = Math.min(height, 460);
-  const maxY = Math.max(8, viewportHeight - visibleHeight - 8);
-  return clamp(value, 8, maxY);
-}
-
-function estimatedNoteHeight(bodyHeight) {
-  return 44 + (bodyHeight ?? 164) + 18;
 }
 
 function clamp(value, min, max) {

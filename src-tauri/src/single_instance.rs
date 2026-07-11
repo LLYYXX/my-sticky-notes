@@ -1,4 +1,5 @@
 use std::{
+    env,
     io::{Read, Write},
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
     sync::Arc,
@@ -25,7 +26,7 @@ pub struct InstanceGuard {
 }
 
 pub fn acquire() -> Result<AcquireResult, String> {
-    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), SERVICE_PORT);
+    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), service_port());
     match TcpListener::bind(address) {
         Ok(listener) => Ok(AcquireResult::Primary(InstanceGuard {
             listener: Arc::new(listener),
@@ -36,6 +37,14 @@ pub fn acquire() -> Result<AcquireResult, String> {
         }
         Err(error) => Err(format!("unable to reserve single-instance endpoint: {error}")),
     }
+}
+
+fn service_port() -> u16 {
+    env::var("MY_STICKY_NOTES_INSTANCE_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|port| *port >= 1024)
+        .unwrap_or(SERVICE_PORT)
 }
 
 pub fn begin_listening(guard: InstanceGuard, app: AppHandle) {
@@ -54,9 +63,15 @@ pub fn begin_listening(guard: InstanceGuard, app: AppHandle) {
 }
 
 pub fn focus_main_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
+    let mut last_window = None;
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("note-") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            last_window = Some(window);
+        }
+    }
+    if let Some(window) = last_window {
         let _ = window.set_focus();
     }
 }
@@ -103,5 +118,10 @@ mod tests {
     fn activation_protocol_has_fixed_message_sizes() {
         assert!(ACTIVATE.starts_with(b"my-sticky-notes:"));
         assert!(ACKNOWLEDGE.starts_with(b"my-sticky-notes:"));
+    }
+
+    #[test]
+    fn default_single_instance_port_is_stable() {
+        assert_eq!(SERVICE_PORT, 45_419);
     }
 }

@@ -1,108 +1,82 @@
 # Tauri migration status
 
-## Architecture decision
+## Window model
 
-The migration keeps one transparent Tauri webview for all notes. It is the only
-always-running renderer and is marked as a tool window so it stays out of the
-taskbar. Each note is a lightweight DOM component, not a second process or a
-second webview.
+My Sticky Notes runs as one application process. Every sticky note is a small,
+frameless native Tauri window with a unique `note-*` label. It owns only the
+note rectangle, so the desktop remains clickable between notes. The application
+does not create a persistent transparent desktop-sized host window.
 
-Settings is deliberately different: Rust creates its normal native window only
-after the tray menu asks for it. Closing that window destroys the settings
-webview. This isolates taskbar behaviour and keeps settings-only memory out of
-the idle path.
+Settings is deliberately separate: Rust creates its normal native window only
+when the tray menu requests it. It is the only normal taskbar window. Note
+windows are tool windows and remain out of the taskbar.
 
-Before the Tauri shell is constructed, a tiny standard-library loopback
-listener reserves the app's single-instance endpoint. A duplicate launch sends
-an activation handshake to the first process, which shows and focuses the note
-window; the duplicate exits without creating another webview. This avoids a
-second renderer and adds no runtime dependency.
+Before the Tauri shell is constructed, a standard-library loopback listener
+reserves the single-instance endpoint. A duplicate launch activates the existing
+process and exits. Several native note windows therefore still mean one app
+instance and one state store, not several application instances.
 
 Responsibilities are separated as follows:
 
-- `src/state.js`: pure persisted state and viewport-safe note normalization.
-- `src/views.js`: note and settings rendering only.
-- `src/app.js`: interaction bindings, persistence boundary, and native command
-  bridge.
-- `src-tauri/src/main.rs`: state file, tray, window lifetime, work-area/DPI
-  placement, topmost state, autostart, and packaging integration.
-- `src-tauri/src/single_instance.rs`: cross-platform local activation handshake
-  and duplicate-launch guard.
+- `src/state.js`: persisted state normalization and local fallback state.
+- `src/views.js`: rendering a single note or Settings only.
+- `src/app.js`: focused-note interaction bindings and native command bridge.
+- `src-tauri/src/main.rs`: native note-window lifetime, state store, tray,
+  autostart, coordinate migration, and packaging integration.
+- `src-tauri/src/single_instance.rs`: local activation handshake.
 
-## DPI and resolution rule
+## Coordinates and persistence
 
-The note host uses the current monitor work area and scale factor. Rust first
-caps its logical width and height to the available work area, then positions
-the resulting physical window at the top right. The browser computes default
-note coordinates from its resulting viewport. No fixed monitor-resolution
-coordinate is restored from persisted state.
+Each new note starts at the primary monitor work-area top right and cascades
+from that point. Native move events persist physical screen coordinates. This
+avoids browser viewport coordinates and fixed-resolution assumptions.
 
-State version 8 does not restore the obsolete note `height` field. Notes grow
-with their Todo content by default. A `bodyHeight` is persisted only after the
-user drags the lower-right resize grip.
+State version 9 converts v8 coordinates from the former host-relative model to
+screen coordinates once, using the current work area and scale factor. The old
+Tk/Python state is also imported once from `%LOCALAPPDATA%\MyStickyNotes\state.json`;
+the old file remains untouched. The obsolete `height` field is ignored, while a
+`bodyHeight` is saved only after the user uses the resize grip.
 
 ## Verified Windows evidence
 
-The current release executable was checked with an isolated five-note state:
+The packaged app was tested in an isolated data directory with two notes:
 
-- note host: `toolWindow=true`, `appWindow=false`;
-- settings: separately created `appWindow=true`, `toolWindow=false`;
-- tray left click restores notes; the tray menu opens settings and exits;
-- a second packaged launch exits with code 0 after activating the first window;
-- release build: `My Sticky Notes_0.3.0_x64-setup.exe` generated;
-- four isolated five-note launches: 32.5–72.2 MB working set; with Settings
-  open: 33.2–72.4 MB. Windows/WebView working-set residency is bimodal on this
-  machine, so this range is more representative than one cold-start sample.
+- two separate `toolWindow=true`, `appWindow=false` note windows were created;
+- each verified note was about 443 by 176 physical pixels on the test display;
+- no visible window was desktop sized, so no transparent click-blocking host
+  existed;
+- tray left click restored all note windows; the tray menu opened Settings and
+  exited the app;
+- Settings was a separate `appWindow=true`, `toolWindow=false` window;
+- a second packaged launch exited with code 0 while the first process remained;
+- the release executable used Windows GUI subsystem 2, so it has no console
+  window;
+- isolated working set was 68.1 MB with two notes and 68.2 MB with Settings.
 
-The enforced Windows runtime budgets are 150 MB for one note, 220 MB for five
-notes, and 250 MB while Settings is open. The probe measures the application
-process working set; shared OS WebView resources should also be inspected with
-platform profiling before declaring a production performance SLA.
+Each note uses a native WebView, so capacity limits should be measured against
+representative note counts rather than extrapolated from a transparent overlay.
 
 ## Direct update for the trusted two-user distribution
 
-The requested distribution model deliberately uses a small direct updater
-instead of Tauri's signed updater plugin. It is inactive until the user presses
-Check update. The renderer reads the latest release metadata from the fixed
-`LLYYXX/my-sticky-notes` GitHub repository and passes only its tag plus asset
-names to the native host. The host accepts only the expected product name,
-current CPU architecture, and platform installer extension; it constructs the
-canonical HTTPS GitHub release URL itself.
+The updater runs only after the user presses Check update. The renderer reads
+metadata from the fixed `LLYYXX/my-sticky-notes` GitHub repository and passes
+only the selected tag and asset names to Rust. Rust reconstructs canonical HTTPS
+release URLs and accepts only the current platform's expected installer name.
 
-On Windows the host downloads the selected NSIS installer into the system temp
-directory. A short-lived PowerShell launcher waits for the parent process to
-exit, starts the installer with `/S`, waits for installation to finish, deletes
-the temporary installer and itself, then relaunches the app. This is the same
-important lifecycle separation used by standalone updaters: the process that
-replaces application files is not the process being replaced. The app adds no
-background update check, persistent helper executable, or updater dependency.
+On Windows a short-lived PowerShell launcher waits for the app process to exit,
+silently runs the NSIS installer, cleans up the temporary installer, and then
+relaunches the app. On macOS the app downloads and opens the appropriate DMG;
+the user may still need to approve it or copy it to Applications.
 
-On macOS the host downloads and opens the matching DMG. macOS may still require
-the user to approve the app or copy it into Applications; transparent in-place
-replacement is intentionally not claimed for an unsigned DMG.
+For the one-time Tk/Python transition, the NSIS pre-install hook closes the old
+`MyStickyNotes.exe` without opening a shell and removes its legacy Run-key
+entry. Releases also include the old updater's installer-name alias and
+`SHA256SUMS.txt`, so `0.2.x` can verify the first Tauri installer.
 
-For the one-time Tk/Python to Tauri transition, the Windows NSIS pre-install
-hook closes the old `MyStickyNotes.exe` without opening a shell and removes its
-legacy Run-key entry. On first launch, Tauri imports
-`%LOCALAPPDATA%\MyStickyNotes\state.json` into its new data directory. If a
-new Tauri state was already created, it merges the old notes by ID once and
-writes a marker, while leaving the old file untouched. The Release additionally
-ships the old updater's installer-name alias and `SHA256SUMS.txt`, so an
-installed `0.2.x` app can verify and start this transition.
+## CI and supported platforms
 
-The repository's `Tauri Build` workflow is the pre-release quality gate. It
-now runs on each `main` push and pull request for both Windows and macOS: each
-job uses the locked pnpm dependency graph, runs the frontend and Rust tests,
-builds the native bundle, and uploads it as a CI artifact. It does not create a
-GitHub Release or require any signing secret.
-
-`Release` can be run manually or by pushing a `v*` tag. It validates the
-matching JavaScript and Tauri versions, builds Windows plus both macOS native
-bundles, and uploads them to the GitHub Release tagged `v<package-version>`.
-Ordinary `main` pushes do not create releases.
-
-## macOS
-
-The release workflow builds separate Apple Silicon and Intel DMGs. GitHub-hosted
-macOS runners verify bundle generation; a real Mac is still needed to verify
-LaunchAgent autostart, tray behaviour, and the dynamic settings window.
+`Tauri Build` runs on every `main` push and pull request. It validates the
+locked pnpm graph, frontend checks, Rust tests, and native bundles on Windows,
+Apple Silicon macOS, and Intel macOS. A `v*` tag or manual Release run publishes
+the Windows x64 installer plus both macOS DMGs. Real Macs are still needed to
+validate tray and LaunchAgent behavior on the target operating systems.

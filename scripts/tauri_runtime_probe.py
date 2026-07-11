@@ -168,16 +168,15 @@ def wait_for(predicate, timeout: float = 5.0, interval: float = 0.1):
 
 
 def find_note_window(pid: int) -> dict[str, object]:
-    return wait_for(
-        lambda: next(
-            (
-                window
-                for window in main_windows(pid)
-                if window["title"] == NOTE_TITLE and bool(window["toolWindow"])
-            ),
-            None,
-        )
-    )
+    return wait_for(lambda: next(iter(find_note_windows(pid)), None))
+
+
+def find_note_windows(pid: int) -> list[dict[str, object]]:
+    return [
+        window
+        for window in main_windows(pid)
+        if window["title"] == NOTE_TITLE and bool(window["toolWindow"])
+    ]
 
 
 def find_settings_window(pid: int) -> dict[str, object]:
@@ -224,6 +223,20 @@ def post_menu_command(tray_hwnd: int, command_id: int) -> None:
 def assert_note_mode(window: dict[str, object]) -> None:
     if not window["toolWindow"] or window["appWindow"]:
         raise AssertionError(f"expected note mode tool window, got {window}")
+
+
+def assert_independent_note_windows(
+    windows: list[dict[str, object]], expected_count: int
+) -> None:
+    if len(windows) != expected_count:
+        raise AssertionError(
+            f"expected {expected_count} independent note windows, got {len(windows)}: {windows!r}"
+        )
+    for window in windows:
+        width = int(window["rect"][2]) - int(window["rect"][0])
+        height = int(window["rect"][3]) - int(window["rect"][1])
+        if width >= 800 or height >= 600:
+            raise AssertionError(f"unexpected desktop overlay window: {window!r}")
 
 
 def assert_settings_mode(window: dict[str, object]) -> None:
@@ -376,14 +389,22 @@ def main() -> int:
 
     env = os.environ.copy()
     env["MY_STICKY_NOTES_DATA_DIR"] = str(args.state_dir.resolve())
+    env["MY_STICKY_NOTES_INSTANCE_PORT"] = "45420"
     process = subprocess.Popen([str(exe)], env=env)
     evidence: dict[str, object] = {
         "pid": process.pid,
         "peSubsystem": assert_windows_gui_subsystem(exe),
     }
     try:
-        note = wait_for(lambda: assertion_probe(process.pid, "note"), timeout=10.0)
-        evidence["initialNoteMode"] = note
+        notes = wait_for(
+            lambda: find_note_windows(process.pid)
+            if len(find_note_windows(process.pid)) == args.note_count
+            else None,
+            timeout=10.0,
+        )
+        assert_independent_note_windows(notes, args.note_count)
+        evidence["initialNoteWindows"] = notes
+        evidence["initialNoteMode"] = notes[0]
         idle_memory = working_set_mb(process.pid)
         evidence["idleWorkingSetMb"] = idle_memory
         if not args.skip_memory_budget:

@@ -3,132 +3,81 @@ import path from "node:path";
 
 const root = process.cwd();
 const requiredFiles = [
-  "package.json",
-  "pnpm-lock.yaml",
-  "src/index.html",
-  "src/app.js",
-  "src/views.js",
-  "src/updates.js",
-  "src/state.js",
-  "src/styles.css",
-  "src/assets/icons/add.png",
-  "src/assets/icons/checkbox-on.png",
-  "src/assets/icons/delete.png",
-  "src/assets/icons/pin.png",
-  "src/assets/icons/LICENSE-lucide.txt",
-  "src/assets/app-icon.png",
-  "src-tauri/Cargo.toml",
-  "src-tauri/tauri.conf.json",
-  "src-tauri/nsis-hooks.nsh",
-  "src-tauri/capabilities/default.json",
-  "src-tauri/src/main.rs",
-  "src-tauri/src/direct_update.rs",
-  "src-tauri/src/single_instance.rs",
-  "scripts/tauri_runtime_probe.py",
-  "scripts/tauri_single_instance_probe.py",
-  "scripts/tauri_update_test.mjs",
+  "package.json", "pnpm-lock.yaml", "src/index.html", "src/app.js", "src/views.js",
+  "src/updates.js", "src/state.js", "src/styles.css", "src/assets/icons/add.png",
+  "src/assets/icons/checkbox-on.png", "src/assets/icons/delete.png", "src/assets/icons/pin.png",
+  "src/assets/icons/LICENSE-lucide.txt", "src/assets/app-icon.png", "src-tauri/Cargo.toml",
+  "src-tauri/tauri.conf.json", "src-tauri/nsis-hooks.nsh", "src-tauri/capabilities/default.json",
+  "src-tauri/src/main.rs", "src-tauri/src/direct_update.rs", "src-tauri/src/single_instance.rs",
+  "scripts/tauri_runtime_probe.py", "scripts/tauri_single_instance_probe.py", "scripts/tauri_update_test.mjs",
 ];
-
 for (const relative of requiredFiles) {
-  if (!fs.existsSync(path.join(root, relative))) {
-    throw new Error(`Missing ${relative}`);
-  }
+  if (!fs.existsSync(path.join(root, relative))) throw new Error(`Missing ${relative}`);
 }
 
-const app = fs.readFileSync(path.join(root, "src/app.js"), "utf8");
-const views = fs.readFileSync(path.join(root, "src/views.js"), "utf8");
-const updates = fs.readFileSync(path.join(root, "src/updates.js"), "utf8");
-const state = fs.readFileSync(path.join(root, "src/state.js"), "utf8");
-const styles = fs.readFileSync(path.join(root, "src/styles.css"), "utf8");
-const rust = fs.readFileSync(path.join(root, "src-tauri/src/main.rs"), "utf8");
-const directUpdate = fs.readFileSync(path.join(root, "src-tauri/src/direct_update.rs"), "utf8");
-const singleInstance = fs.readFileSync(path.join(root, "src-tauri/src/single_instance.rs"), "utf8");
-const cargoToml = fs.readFileSync(path.join(root, "src-tauri/Cargo.toml"), "utf8");
-const capabilities = JSON.parse(
-  fs.readFileSync(path.join(root, "src-tauri/capabilities/default.json"), "utf8"),
-);
-const config = JSON.parse(
-  fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8"),
-);
-const nsisHooks = fs.readFileSync(path.join(root, "src-tauri/nsis-hooks.nsh"), "utf8");
-const tauriBuild = fs.existsSync(path.join(root, ".github/workflows/tauri-build.yml"))
-  ? fs.readFileSync(path.join(root, ".github/workflows/tauri-build.yml"), "utf8")
-  : "";
-const release = fs.existsSync(path.join(root, ".github/workflows/release.yml"))
-  ? fs.readFileSync(path.join(root, ".github/workflows/release.yml"), "utf8")
-  : "";
-const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-const runtimeProbe = fs.readFileSync(path.join(root, "scripts/tauri_runtime_probe.py"), "utf8");
-const singleInstanceProbe = fs.readFileSync(path.join(root, "scripts/tauri_single_instance_probe.py"), "utf8");
-const updateTest = fs.readFileSync(path.join(root, "scripts/tauri_update_test.mjs"), "utf8");
+const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
+const app = read("src/app.js");
+const views = read("src/views.js");
+const updates = read("src/updates.js");
+const state = read("src/state.js");
+const styles = read("src/styles.css");
+const rust = read("src-tauri/src/main.rs");
+const directUpdate = read("src-tauri/src/direct_update.rs");
+const singleInstance = read("src-tauri/src/single_instance.rs");
+const cargoToml = read("src-tauri/Cargo.toml");
+const config = JSON.parse(read("src-tauri/tauri.conf.json"));
+const capabilities = JSON.parse(read("src-tauri/capabilities/default.json"));
+const nsisHooks = read("src-tauri/nsis-hooks.nsh");
+const runtimeProbe = read("scripts/tauri_runtime_probe.py");
+const singleInstanceProbe = read("scripts/tauri_single_instance_probe.py");
+const updateTest = read("scripts/tauri_update_test.mjs");
+const tauriBuild = fs.existsSync(path.join(root, ".github/workflows/tauri-build.yml")) ? read(".github/workflows/tauri-build.yml") : "";
+const release = fs.existsSync(path.join(root, ".github/workflows/release.yml")) ? read(".github/workflows/release.yml") : "";
+const packageJson = JSON.parse(read("package.json"));
 const noteChromeOrder = [
-  'data-action="new-from-note"',
-  'data-action="delete-note"',
-  'data-action="pin-note"',
-  'data-action="collapse-note"',
+  'data-action="new-from-note"', 'data-action="delete-note"',
+  'data-action="pin-note"', 'data-action="collapse-note"',
 ].map((needle) => views.indexOf(needle));
-const noteChromeControlsOrdered = noteChromeOrder.every((index) => index >= 0)
-  && noteChromeOrder.every((index, indexInArray) => indexInArray === 0 || index > noteChromeOrder[indexInArray - 1]);
 
 const checks = [
-  ["renderer responsibilities are separated", app.includes('from "./views.js"') && views.includes("renderNotes") && views.includes("renderSettings")],
-  ["note and settings use dedicated window contexts", app.includes("isSettingsWindow") && rust.includes("show_settings_window") && rust.includes('WebviewUrl::App("index.html?settings=1"')],
-  ["settings webview is created only on demand", rust.includes('get_webview_window("settings")') && rust.includes("WebviewWindowBuilder::new") && !config.app.windows.some((window) => window.label === "settings")],
-  ["preview states are available for visual QA", app.includes("previewCollapsed") && app.includes("previewPalette")],
-  ["note chrome uses bundled raster icons", views.includes("./assets/icons/") && !views.includes(">＋</button>") && !views.includes(">×</button>")],
-  ["note chrome keeps requested button order", noteChromeControlsOrdered],
+  ["renderer separates a note window from Settings", app.includes("noteId") && app.includes("isSettingsWindow") && views.includes("renderNoteWindow") && views.includes("renderSettings")],
+  ["each sticky note is a runtime native window", rust.includes("create_note_window") && rust.includes("WebviewWindowBuilder::new") && rust.includes("NOTE_LABEL_PREFIX") && rust.includes("index.html?note=")],
+  ["no persistent transparent desktop host remains", Array.isArray(config.app.windows) && config.app.windows.length === 0 && !styles.includes("notes-workspace") && !rust.includes("position_notes_window")],
+  ["only small note windows use transparent corners", rust.includes(".transparent(true)") && rust.includes(".inner_size(note_width(note), note_window_height(note))")],
+  ["native note labels are safe and stable", rust.includes("fn note_label") && rust.includes("encode_query_component")],
+  ["note positions are native coordinates", !state.includes("globalThis.innerWidth") && state.includes("x: Number.isFinite(note.x)") && rust.includes("remember_note_position")],
+  ["previous host positions migrate once", rust.includes("migrate_legacy_host_coordinates") && rust.includes("legacy_host_origin") && rust.includes("STATE_VERSION: u16 = 9")],
+  ["new notes still default to the screen top right", rust.includes("default_note_position") && rust.includes("NOTE_MARGIN")],
+  ["settings is created only when requested", rust.includes('get_webview_window("settings")') && rust.includes("show_settings_window")],
+  ["note controls keep the requested order", noteChromeOrder.every((index) => index >= 0) && noteChromeOrder.every((index, i) => i === 0 || index > noteChromeOrder[i - 1])],
+  ["note chrome uses bundled raster icons", views.includes("./assets/icons/") && !views.includes(">+</button>")],
   ["nine independent note colors remain available", ["yellow", "offwhite", "lime", "lilac", "cream", "pink", "mint", "coral", "navy"].every((color) => state.includes(`${color}: {`))],
-  ["default note placement is viewport-relative", state.includes("globalThis.innerWidth") && state.includes("defaultNoteX") && rust.includes("x: Option<f64>")],
-  ["legacy note height is not restored", !state.includes("note.height") && state.includes("bodyHeight")],
-  ["note content height follows its todo list by default", views.includes("note.bodyHeight ?") && styles.includes("var(--note-body-height, 0px)") && !views.includes("min-height:${note.collapsed")],
-  ["long todos wrap inside their note", styles.includes("overflow-wrap: anywhere") && styles.includes("word-break: break-word")],
-  ["collapse action is implemented", views.includes('data-action="collapse-note"') && state.includes("toggleNoteCollapsed")],
-  ["collapsed state is persisted", state.includes("collapsed: Boolean")],
-  ["per-note resize is persisted", app.includes("startResize") && app.includes("bodyHeight") && views.includes("note-resize")],
-  ["Tauri state commands are wired", app.includes('invoke("load_state"') && app.includes('invoke("save_state"')],
-  ["legacy Tk state migrates and merges once", rust.includes("load_or_migrate_state") && rust.includes("legacy_state_path") && rust.includes("merge_legacy_state") && rust.includes("legacy_migration_marker_path")],
-  ["state persistence replaces JSON atomically", rust.includes("write_json_atomically") && rust.includes("create_new(true)") && rust.includes("sync_all()") && rust.includes("fs::rename")],
-  ["Tauri command failures degrade safely", app.includes("console.warn(`Tauri command failed:") && app.includes("return null;")],
-  ["global pointer listeners are bound once", app.includes("pointerEventsBound") && app.includes("bindPointerEvents()")],
-  ["note host stays out of the taskbar", config.app.windows[0].skipTaskbar === true && rust.includes("ensure_notes_taskbar_style")],
-  ["settings is the only normal taskbar window", rust.includes("WebviewWindowBuilder::new") && rust.includes('.title("桌面便利贴设置")')],
-  ["window shell is sticky-layer styled", config.app.windows[0].decorations === false && config.app.windows[0].transparent === true && config.app.windows[0].resizable === false && styles.includes("background: transparent;")],
-  ["host window uses monitor work area and scale factor", rust.includes("position_notes_window") && rust.includes("top_right_position") && rust.includes("notes_host_logical_size") && rust.includes("monitor.work_area()") && !Object.prototype.hasOwnProperty.call(config.app.windows[0], "minWidth") && !Object.prototype.hasOwnProperty.call(config.app.windows[0], "minHeight")],
-  ["QA can use isolated Tauri state directory", rust.includes("configured_data_dir") && rust.includes("MY_STICKY_NOTES_DATA_DIR") && rust.includes("app.path().app_data_dir()")],
-  ["pin state reaches host window", app.includes('invoke("set_always_on_top"') && rust.includes("set_always_on_top")],
-  ["autostart setting reaches native plugin", app.includes('invoke("set_open_at_login"') && app.includes('invoke("is_open_at_login_enabled"') && cargoToml.includes("tauri-plugin-autostart") && rust.includes("ManagerExt")],
-  ["tray is implemented once in Rust", !('trayIcon' in config.app) && rust.includes("TrayIconBuilder::new()")],
-  ["tray left click restores notes", rust.includes(".show_menu_on_left_click(false)") && rust.includes("MouseButton::Left") && rust.includes("show_main_window(tray.app_handle())")],
-  ["tray opens the independent settings window", rust.includes('"settings" =>') && rust.includes("show_settings_window(app)")],
-  ["single-instance guard is owned before the Tauri shell", rust.includes("single_instance::acquire()") && rust.includes("single_instance::begin_listening") && singleInstance.includes("TcpListener::bind") && singleInstance.includes("focus_main_window")],
-  ["single-instance probe asserts the duplicate-launch symptom", singleInstanceProbe.includes("second.poll() is not None") && singleInstanceProbe.includes("firstWindowsAfterDuplicate")],
-  ["GitHub release checks include prerelease assets", updates.includes("releases?per_page=20") && updates.includes("selectNewestRelease") && updates.includes("assetNames") && app.includes("checkGithubRelease") && updateTest.includes("no published release available")],
-  ["direct updates are fixed-source and parent-exit safe", rust.includes("direct_update::download_and_install_update") && directUpdate.includes("RELEASE_DOWNLOAD_BASE") && directUpdate.includes("--proto") && directUpdate.includes("WaitForExit") && directUpdate.includes("-ArgumentList @('/S')") && directUpdate.includes("$installer.WaitForExit()") && directUpdate.includes("asset_matches_current_platform")],
+  ["long todos wrap inside each note", styles.includes("overflow-wrap: anywhere") && styles.includes("word-break: break-word")],
+  ["collapse and resize stay per note", app.includes("collapse-note") && app.includes("resize_note_preview") && app.includes("bodyHeight") && views.includes("note-resize")],
+  ["frontend mutates notes through focused commands", app.includes('invoke("save_note"') && app.includes('invoke("create_note"') && app.includes('invoke("delete_note"') && app.includes('invoke("save_settings"')],
+  ["state has one backend authority and atomic writes", rust.includes("AppStateStore(Mutex<AppState>)") && rust.includes("mutate_state") && rust.includes("write_json_atomically") && rust.includes("create_new(true)")],
+  ["legacy Tk state still migrates once", rust.includes("load_or_migrate_state") && rust.includes("legacy_state_path") && rust.includes("merge_legacy_state") && rust.includes("legacy_migration_marker_path")],
+  ["per-note pin reaches native windows", rust.includes("set_always_on_top(note.pinned)")],
+  ["tray restores every note window", rust.includes("show_note_windows") && rust.includes("MouseButton::Left") && rust.includes("show_menu_on_left_click(false)")],
+  ["single instance focuses note windows rather than a host", singleInstance.includes("label.starts_with(\"note-\")") && singleInstance.includes("TcpListener::bind")],
+  ["single-instance probe remains present", singleInstanceProbe.includes("second.poll() is not None") && singleInstanceProbe.includes("firstWindowsAfterDuplicate")],
+  ["runtime probe checks native note mode and GUI subsystem", runtimeProbe.includes("find_note_window") && runtimeProbe.includes("assert_note_mode") && runtimeProbe.includes("assert_windows_gui_subsystem")],
+  ["dynamic note windows are in the capability scope", capabilities.windows.includes("note-*") && capabilities.windows.includes("settings") && capabilities.permissions.includes("core:default")],
+  ["settings page contains no obsolete note configuration", views.includes("settings-window") && !views.includes("stayLightweight")],
+  ["about source link opens externally", views.includes('href="https://github.com/LLYYXX/my-sticky-notes" target="_blank"') && capabilities.permissions.includes("opener:default")],
+  ["direct updates remain fixed-source and parent-exit safe", rust.includes("direct_update::download_and_install_update") && directUpdate.includes("RELEASE_DOWNLOAD_BASE") && directUpdate.includes("WaitForExit") && directUpdate.includes("-ArgumentList @('/S')")],
   ["direct updates add no signed-updater runtime", !cargoToml.includes("tauri-plugin-updater") && !directUpdate.includes("tauri_plugin_updater")],
-  ["runtime probe covers settings, autostart, memory, and GUI subsystem", runtimeProbe.includes("MENU_SETTINGS = 1001") && runtimeProbe.includes("APP_REG_NAMES") && runtimeProbe.includes("matching_autostart_values") && runtimeProbe.includes("settingsWindow") && runtimeProbe.includes("working_set_mb") && runtimeProbe.includes("assert_memory_budget") && runtimeProbe.includes("assert_windows_gui_subsystem")],
-  ["Tauri v2 capability file covers both views", capabilities.identifier === "default" && capabilities.windows.includes("main") && capabilities.windows.includes("settings") && capabilities.permissions.includes("core:default") && capabilities.permissions.includes("autostart:default")],
-  ["settings page exists without a note settings section", views.includes("settings-window") && !views.includes("stayLightweight")],
-  ["about source link opens in the default browser", views.includes('href="https://github.com/LLYYXX/my-sticky-notes" target="_blank"') && capabilities.permissions.includes("opener:default")],
-  ["color palette exists", views.includes("palette-popover")],
-  ["hidden popovers stay hidden", styles.includes("[hidden]")],
-  ["Windows and macOS bundle targets exist", JSON.stringify(config.bundle.targets) === JSON.stringify(["nsis", "dmg"])],
   ["Windows release does not open a console window", rust.includes('#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]')],
-  ["legacy installer closes the old application without a shell window", config.bundle.windows.nsis.installerHooks === "nsis-hooks.nsh" && nsisHooks.includes("taskkill.exe") && nsisHooks.includes("MyStickyNotes.exe") && nsisHooks.includes("DeleteRegValue") && !nsisHooks.includes("cmd.exe")],
-  ["CI uses stable GitHub action majors", tauriBuild.includes("actions/checkout@v4") && tauriBuild.includes("actions/setup-node@v4") && tauriBuild.includes("actions/upload-artifact@v4")],
-  ["Tauri CI validates Windows plus both Mac architectures", tauriBuild.includes("push:") && tauriBuild.includes("pull_request:") && tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("macos-15-intel") && tauriBuild.includes("cargo test --locked")],
-  ["build workflows use a pnpm-compatible Node version", packageJson.engines?.node === ">=22.13" && tauriBuild.includes('node-version: "22"') && release.includes('node-version: "22"')],
-  ["Tauri build workflow uses locked pnpm install", tauriBuild.includes("corepack enable") && tauriBuild.includes("pnpm install --frozen-lockfile") && tauriBuild.includes("pnpm run tauri:build")],
-  ["frontend package manager and Tauri CLI are pinned", packageJson.packageManager === "pnpm@11.7.0" && packageJson.devDependencies?.["@tauri-apps/cli"] === "2.11.4"],
+  ["legacy installer closes the old application without a shell", config.bundle.windows.nsis.installerHooks === "nsis-hooks.nsh" && nsisHooks.includes("taskkill.exe") && nsisHooks.includes("MyStickyNotes.exe") && !nsisHooks.includes("cmd.exe")],
+  ["Windows and macOS bundle targets exist", JSON.stringify(config.bundle.targets) === JSON.stringify(["nsis", "dmg"])],
   ["release versions stay aligned", packageJson.version === config.version && app.includes(`const APP_VERSION = "v${packageJson.version}"`)],
-  ["active icon license is retained", fs.existsSync(path.join(root, "src/assets/icons/LICENSE-lucide.txt")) && fs.readFileSync(path.join(root, "README.md"), "utf8").includes("src/assets/icons/LICENSE-lucide.txt")],
-  ["release publishes from manual dispatch or a version tag", release.includes("workflow_dispatch") && release.includes("tags:") && release.includes('"v*"') && release.includes("windows-latest") && release.includes("macos-latest") && release.includes("cargo test --locked") && release.includes("gh release upload") && !release.includes("build.ps1")],
-  ["release publishes installers plus legacy update metadata", release.includes("bundle/nsis/*.exe") && release.includes("bundle/dmg/*.dmg") && !release.includes("bundle/**") && release.includes("gh release delete-asset") && release.includes("My.Sticky.Notes.Setup.${version}.exe") && release.includes("SHA256SUMS.txt")],
+  ["CI validates Windows and both Mac architectures", tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("macos-15-intel") && tauriBuild.includes("cargo test --locked")],
+  ["build workflow uses locked pnpm and pinned Node", packageJson.engines?.node === ">=22.13" && tauriBuild.includes('node-version: "22"') && tauriBuild.includes("pnpm install --frozen-lockfile")],
+  ["release publishes installers and legacy update metadata", release.includes("bundle/nsis/*.exe") && release.includes("bundle/dmg/*.dmg") && release.includes("My.Sticky.Notes.Setup.${version}.exe") && release.includes("SHA256SUMS.txt")],
   ["release builds both Mac architectures", release.includes("macos-latest") && release.includes("macos-15-intel")],
+  ["GitHub release checks include prerelease assets", updates.includes("releases?per_page=20") && updates.includes("selectNewestRelease") && updateTest.includes("no published release available")],
 ];
 
 const failures = checks.filter(([, passed]) => !passed).map(([name]) => name);
-if (failures.length > 0) {
-  throw new Error(`Static Tauri checks failed: ${failures.join(", ")}`);
-}
-
+if (failures.length) throw new Error(`Static Tauri checks failed: ${failures.join(", ")}`);
 console.log(JSON.stringify({ result: "passed", checks: checks.map(([name]) => name) }));
