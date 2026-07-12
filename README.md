@@ -73,6 +73,11 @@ the app imports `%LOCALAPPDATA%\MyStickyNotes\state.json` once and preserves the
 old file. The Release contains the installer alias and `SHA256SUMS.txt` needed
 by the old updater.
 
+`0.3.1` mistakenly required a space-containing asset name. GitHub normalizes
+such Release asset names, so it cannot download its own repair automatically:
+install `0.3.2` once from the Release page. Starting with `0.3.2`, the updater
+accepts GitHub's normalized dotted names and subsequent updates are automatic.
+
 See [TAURI_MIGRATION.md](TAURI_MIGRATION.md) for migration, update, and
 verification details.
 

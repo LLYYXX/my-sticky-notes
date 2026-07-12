@@ -74,7 +74,7 @@ const checks = [
   ["release versions stay aligned", packageJson.version === config.version && app.includes(`const APP_VERSION = "v${packageJson.version}"`)],
   ["CI validates Windows and both Mac architectures", tauriBuild.includes("windows-latest") && tauriBuild.includes("macos-latest") && tauriBuild.includes("macos-15-intel") && tauriBuild.includes("cargo test --locked")],
   ["build workflow uses locked pnpm and pinned Node", packageJson.engines?.node === ">=22.13" && tauriBuild.includes('node-version: "22"') && tauriBuild.includes("pnpm install --frozen-lockfile")],
-  ["release publishes installers and legacy update metadata", release.includes("bundle/nsis/*.exe") && release.includes("bundle/dmg/*.dmg") && release.includes("My.Sticky.Notes.Setup.${version}.exe") && release.includes("My Sticky Notes_${version}_x64-setup.exe") && release.includes('installer_name="$(basename "$installer")"') && release.includes('if [ "$installer_name" != "$tauri_031_name" ]; then') && release.includes("SHA256SUMS.txt")],
+  ["release publishes installers and legacy update metadata", release.includes("bundle/nsis/*.exe") && release.includes("bundle/dmg/*.dmg") && release.includes("My.Sticky.Notes.Setup.${version}.exe") && release.includes("SHA256SUMS.txt")],
   ["release builds both Mac architectures", release.includes("macos-latest") && release.includes("macos-15-intel")],
   ["GitHub release checks include prerelease assets", updates.includes("releases?per_page=20") && updates.includes("selectNewestRelease") && updateTest.includes("no published release available")],
 ];

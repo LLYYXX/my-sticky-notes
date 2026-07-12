@@ -21,13 +21,6 @@ function legacyUpdateAssetsAreCompatible(version, assetNames) {
     && assetNames.includes("SHA256SUMS.txt");
 }
 
-function compatibilityAssetNames(installerName, version) {
-  const names = [installerName, `My.Sticky.Notes.Setup.${version}.exe`];
-  const tauri031Name = `My Sticky Notes_${version}_x64-setup.exe`;
-  if (installerName !== tauri031Name) names.push(tauri031Name);
-  return names;
-}
-
 assert.equal(normalizeVersion("v0.3.0-alpha.0"), "0.3.0-alpha.0");
 assert.equal(compareVersions("0.3.0", "0.3.0-alpha.0"), 1);
 assert.equal(compareVersions("0.4.0", "0.3.9"), 1);
@@ -38,18 +31,6 @@ assert.equal(compareVersions("0.3.0-alpha.2", "0.3.0-alpha.10"), -1);
 assert.equal(compareVersions("0.3.0-alpha", "0.3.0-alpha.1"), -1);
 assert.equal(compareVersions("0.3.0+build.2", "0.3.0+build.1"), 0);
 assert.throws(() => normalizeVersion("0.03.0"), /invalid release version/);
-assert.deepEqual(
-  compatibilityAssetNames("My Sticky Notes_0.3.2_x64-setup.exe", "0.3.2"),
-  ["My Sticky Notes_0.3.2_x64-setup.exe", "My.Sticky.Notes.Setup.0.3.2.exe"],
-);
-assert.deepEqual(
-  compatibilityAssetNames("My.Sticky.Notes_0.3.2_x64-setup.exe", "0.3.2"),
-  [
-    "My.Sticky.Notes_0.3.2_x64-setup.exe",
-    "My.Sticky.Notes.Setup.0.3.2.exe",
-    "My Sticky Notes_0.3.2_x64-setup.exe",
-  ],
-);
 
 {
   const result = await checkGithubRelease("0.3.0-alpha.0", async () => response([
@@ -78,16 +59,11 @@ await assert.rejects(
 {
   const release = fs.readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
   const releaseAssets = ["My.Sticky.Notes_0.3.0_x64-setup.exe"];
-  if (release.includes('tauri_031_name="My Sticky Notes_${version}_x64-setup.exe"')) {
-    releaseAssets.push("My Sticky Notes_0.3.0_x64-setup.exe");
-  }
   if (release.includes('legacy_name="My.Sticky.Notes.Setup.${version}.exe"')) {
     releaseAssets.push("My.Sticky.Notes.Setup.0.3.0.exe");
   }
   if (release.includes("SHA256SUMS.txt")) releaseAssets.push("SHA256SUMS.txt");
   assert.equal(legacyUpdateAssetsAreCompatible("0.3.0", releaseAssets), true);
-  assert.ok(release.includes('installer_name="$(basename "$installer")"'));
-  assert.ok(release.includes('if [ "$installer_name" != "$tauri_031_name" ]; then'));
 }
 
 console.log(JSON.stringify({ result: "passed", tests: 16 }));

@@ -73,6 +73,11 @@ For the one-time Tk/Python transition, the NSIS pre-install hook closes the old
 entry. Releases also include the old updater's installer-name alias and
 `SHA256SUMS.txt`, so `0.2.x` can verify the first Tauri installer.
 
+The early Tauri `0.3.1` updater required a space-containing asset name, but
+GitHub normalizes Release asset filenames with special characters. It therefore
+needs one manual installation of `0.3.2`; the current updater accepts the
+normalized dotted installer name for all later updates.
+
 ## CI and supported platforms
 
 `Tauri Build` runs on every `main` push and pull request. It validates the
