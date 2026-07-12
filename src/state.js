@@ -93,10 +93,7 @@ export const copy = {
     general: "常规",
     about: "关于",
     language: "语言",
-    startAtLogin: "登录后自动启动",
-    startAtLoginHint: "随系统启动，保持便签无感常驻。",
-    stayLightweight: "轻量约束",
-    stayLightweightHint: "单窗口承载多张便签，设置页按需显示，避免多渲染进程常驻。",
+    startAtLogin: "开机自动启动",
     version: "当前版本",
     source: "开源地址",
     update: "检查更新",
@@ -130,10 +127,7 @@ export const copy = {
     general: "General",
     about: "About",
     language: "Language",
-    startAtLogin: "Start at login",
-    startAtLoginHint: "Launch with the system and keep notes lightweight.",
-    stayLightweight: "Lightweight budget",
-    stayLightweightHint: "One renderer owns all notes; Settings opens only when needed.",
+    startAtLogin: "Start at boot",
     version: "Current version",
     source: "Open source",
     update: "Check update",
@@ -170,20 +164,6 @@ export function createId(prefix) {
     .slice(2)}`;
 }
 
-export function createDefaultTodo(index = 0, idFactory = createId) {
-  const samples = [
-    { text: "完成项目草稿", completed: false },
-    { text: "晨跑 30 分钟", completed: true },
-  ];
-  const sample = samples[index] ?? { text: "", completed: false };
-  return {
-    id: idFactory("todo"),
-    text: sample.text,
-    completed: sample.completed,
-    order: index,
-  };
-}
-
 export function createDefaultNote(index = 0, idFactory = createId) {
   return {
     id: idFactory("note"),
@@ -194,7 +174,7 @@ export function createDefaultNote(index = 0, idFactory = createId) {
     y: null,
     width: 340,
     bodyHeight: null,
-    todos: [createDefaultTodo(0, idFactory), createDefaultTodo(1, idFactory)],
+    todos: [],
   };
 }
 

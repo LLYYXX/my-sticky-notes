@@ -85,7 +85,7 @@ function settingsTab(page, label, activePage) {
 
 function renderGeneral(state, { language, tr }) {
   const enabled = Boolean(state.settings.openAtLogin);
-  return `<section class="settings-panel"><h1>${escapeHtml(tr("general"))}</h1><div class="settings-row"><div><strong>${escapeHtml(tr("startAtLogin"))}</strong><p>${escapeHtml(tr("startAtLoginHint"))}</p></div><button class="switch ${enabled ? "on" : ""}" data-toggle="openAtLogin" aria-pressed="${enabled}"><span></span></button></div><div class="settings-row"><div><strong>${escapeHtml(tr("language"))}</strong><p>${escapeHtml(tr("languageHint"))}</p></div><div class="segmented" role="group" aria-label="${escapeHtml(tr("language"))}"><button class="${language === "zh-CN" ? "active" : ""}" data-language="zh-CN">中文</button><button class="${language === "en" ? "active" : ""}" data-language="en">English</button></div></div></section>`;
+  return `<section class="settings-panel"><h1>${escapeHtml(tr("general"))}</h1><div class="settings-row"><div><strong>${escapeHtml(tr("startAtLogin"))}</strong></div><button class="switch ${enabled ? "on" : ""}" data-toggle="openAtLogin" aria-pressed="${enabled}"><span></span></button></div><div class="settings-row"><div><strong>${escapeHtml(tr("language"))}</strong><p>${escapeHtml(tr("languageHint"))}</p></div><div class="segmented" role="group" aria-label="${escapeHtml(tr("language"))}"><button class="${language === "zh-CN" ? "active" : ""}" data-language="zh-CN">中文</button><button class="${language === "en" ? "active" : ""}" data-language="en">English</button></div></div></section>`;
 }
 
 function renderAbout({ tr, status, updateInFlight, version }) {

@@ -15,7 +15,7 @@ const app = document.querySelector("#app");
 const params = new URLSearchParams(window.location.search);
 const noteId = params.get("note");
 const isSettingsWindow = params.get("settings") === "1";
-const APP_VERSION = "v0.3.1";
+const APP_VERSION = "v0.3.2";
 
 let state = normalizeState();
 let activeSettingsPage = params.get("settingsPage") === "about" ? "about" : "general";

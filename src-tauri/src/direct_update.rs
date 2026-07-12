@@ -68,7 +68,8 @@ fn asset_matches_current_platform(name: &str) -> bool {
         return false;
     }
     let lower = name.to_ascii_lowercase();
-    let matches_product = lower.starts_with("my sticky notes_");
+    let matches_product = lower.starts_with("my sticky notes_")
+        || lower.starts_with("my.sticky.notes_");
     let matches_architecture = architecture_tokens()
         .iter()
         .any(|token| lower.contains(token));
@@ -154,8 +155,27 @@ fn download_asset(source: &str, destination: &Path) -> Result<(), String> {
     } else {
         "/usr/bin/curl"
     };
-    let status = Command::new(curl)
-        .args(["--fail", "--location", "--proto", "=https", "--output"])
+    let mut command = Command::new(curl);
+    command
+        .args([
+            "--fail",
+            "--location",
+            "--proto",
+            "=https",
+            "--connect-timeout",
+            "15",
+            "--max-time",
+            "180",
+            "--retry",
+            "2",
+            "--retry-max-time",
+            "180",
+        ]);
+    if cfg!(target_os = "windows") {
+        command.arg("--ssl-no-revoke");
+    }
+    let status = command
+        .arg("--output")
         .arg(destination)
         .arg(source)
         .status()
@@ -257,6 +277,14 @@ mod tests {
     fn current_platform_filter_rejects_unrelated_asset_names() {
         assert!(!asset_matches_current_platform("source.zip"));
         assert!(!asset_matches_current_platform("Other App_0.3.0_x64-setup.exe"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn accepts_the_published_dotted_windows_installer_name() {
+        assert!(asset_matches_current_platform(
+            "My.Sticky.Notes_0.3.0_x64-setup.exe"
+        ));
     }
 
     #[cfg(target_os = "windows")]

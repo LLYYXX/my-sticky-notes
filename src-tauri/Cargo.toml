@@ -1,6 +1,6 @@
 [package]
 name = "my-sticky-notes"
-version = "0.3.1"
+version = "0.3.2"
 description = "A lightweight local-first sticky todo app rebuilt with Tauri."
 authors = ["LLYYXX"]
 license = "MIT"

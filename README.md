@@ -52,7 +52,7 @@ python scripts\tauri_single_instance_probe.py
 The Windows installer is produced at:
 
 ```text
-src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.1_x64-setup.exe
+src-tauri\target\release\bundle\nsis\My Sticky Notes_0.3.2_x64-setup.exe
 ```
 
 The runtime probe uses an isolated state directory and an independent

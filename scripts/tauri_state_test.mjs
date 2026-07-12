@@ -18,12 +18,14 @@ const ids = (prefix) => `${prefix}-${++sequence}`;
   assert.equal(state.notes.length, 1);
   assert.equal(state.notes[0].color, "yellow");
   assert.equal(state.notes[0].collapsed, false);
+  assert.deepEqual(state.notes[0].todos, []);
 }
 
 {
   const note = createDefaultNote(0, ids);
   assert.equal(note.x, null);
   assert.equal(note.y, null);
+  assert.deepEqual(note.todos, []);
   const normalized = normalizeState({ notes: [{ id: "n", x: null, todos: [] }] }, ids);
   assert.equal(normalized.notes[0].x, null);
 }
