@@ -59,6 +59,9 @@ await assert.rejects(
 {
   const release = fs.readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
   const releaseAssets = ["My.Sticky.Notes_0.3.0_x64-setup.exe"];
+  if (release.includes('tauri_031_name="My Sticky Notes_${version}_x64-setup.exe"')) {
+    releaseAssets.push("My Sticky Notes_0.3.0_x64-setup.exe");
+  }
   if (release.includes('legacy_name="My.Sticky.Notes.Setup.${version}.exe"')) {
     releaseAssets.push("My.Sticky.Notes.Setup.0.3.0.exe");
   }

@@ -56,7 +56,13 @@ fn select_update_asset(request: &UpdateRequest) -> Result<&str, String> {
         .iter()
         .filter(|name| asset_matches_current_platform(name))
         .collect::<Vec<_>>();
-    match candidates.as_slice() {
+    let canonical = candidates
+        .iter()
+        .copied()
+        .filter(|name| name.to_ascii_lowercase().starts_with("my.sticky.notes_"))
+        .collect::<Vec<_>>();
+    let selected = if canonical.is_empty() { candidates } else { canonical };
+    match selected.as_slice() {
         [asset_name] => Ok(asset_name.as_str()),
         [] => Err("the release has no installer for this platform".to_owned()),
         _ => Err("the release has ambiguous installers for this platform".to_owned()),
@@ -285,6 +291,22 @@ mod tests {
         assert!(asset_matches_current_platform(
             "My.Sticky.Notes_0.3.0_x64-setup.exe"
         ));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn prefers_the_canonical_installer_when_a_legacy_alias_is_present() {
+        let request = UpdateRequest {
+            tag: "v0.3.2".to_owned(),
+            asset_names: vec![
+                "My Sticky Notes_0.3.2_x64-setup.exe".to_owned(),
+                "My.Sticky.Notes_0.3.2_x64-setup.exe".to_owned(),
+            ],
+        };
+        assert_eq!(
+            select_update_asset(&request).expect("choose canonical installer"),
+            "My.Sticky.Notes_0.3.2_x64-setup.exe"
+        );
     }
 
     #[cfg(target_os = "windows")]
