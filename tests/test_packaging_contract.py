@@ -36,6 +36,12 @@ class PackagingContractTests(unittest.TestCase):
         self.assertNotIn("Portable", script)
         self.assertNotIn("Compress-Archive", script)
 
+    def test_windows_bundle_is_guarded_against_console_subsystem(self) -> None:
+        script = (ROOT / "build.ps1").read_text(encoding="utf-8")
+
+        self.assertIn('"--windowed"', script)
+        self.assertIn("scripts\\check_pe_subsystem.py", script)
+
     def test_build_cache_is_validated_against_active_python(self) -> None:
         script = (ROOT / "build.ps1").read_text(encoding="utf-8")
 

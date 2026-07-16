@@ -63,7 +63,10 @@ class AssetTests(unittest.TestCase):
         icon_dir = Path(__file__).resolve().parents[1] / "assets" / "icons"
         expected = {
             "add-light.png",
+            "chevron-down-light.png",
             "delete-light.png",
+            "minus-light.png",
+            "palette-light.png",
             "pin-light.png",
             "checkbox-off-light.png",
             "checkbox-on-light.png",

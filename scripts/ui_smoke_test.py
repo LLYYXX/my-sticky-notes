@@ -23,11 +23,29 @@ def main() -> int:
         controller._open_note(note)
         controller.root.update()
         window = controller.windows[note.id]
+        assert not hasattr(window.title_bar, "title_label")
+        window.title_bar.color_picker._toggle_popup()
+        controller.root.update()
+        palette = window.title_bar.color_picker._popup
+        assert palette is not None and palette.winfo_exists()
+        assert len(palette.winfo_children()[0].winfo_children()) == 9
+        window.title_bar.color_picker.close_popup()
 
-        window.add_entry.delete(0, "end")
-        window.add_entry.insert(0, "新增事项")
-        window._add_todo()
+        window._add_todo("new item")
         assert len(note.todos) == 1
+
+        window._add_todo("long todo item " * 16)
+        controller.root.update_idletasks()
+        long_row = window.todo_list.content.winfo_children()[1]
+        long_label = next(
+            child
+            for child in long_row.winfo_children()
+            if child.winfo_class() == "Label" and child.cget("text").startswith("long todo")
+        )
+        assert long_label.winfo_height() > 20
+        assert window.todo_list.add_entry.winfo_rooty() > (
+            long_label.winfo_rooty() + long_label.winfo_height()
+        )
 
         todo = note.todos[0]
         window._toggle_todo(todo.id, True)
@@ -35,15 +53,13 @@ def main() -> int:
         window._edit_todo(todo.id, "编辑后的事项")
         assert todo.text == "编辑后的事项"
 
-        window._change_title("编辑后的标题")
+        window._change_color("navy")
         window._toggle_pin()
-        assert note.title == "编辑后的标题"
+        assert note.color == "navy"
         assert note.pinned is True
 
         assert controller._save_settings(
             AppSettings(
-                default_color="offwhite",
-                notes_pinned=True,
                 open_at_login=False,
                 language="zh-CN",
             )
@@ -53,6 +69,7 @@ def main() -> int:
         controller.root.update()
         assert controller.settings_window is not None
         settings_window = controller.settings_window
+        assert "notes" not in settings_window._pages
         assert "about" in settings_window._pages
         settings_window._show_page("about")
         assert settings_window._update_status_label.cget("text") == "尚未检查更新"
@@ -80,13 +97,6 @@ def main() -> int:
         assert not settings_window._update_checking
         assert len(installed) == 1
         assert settings_window._update_status_label.cget("text") == "安装程序已启动"
-        settings_window._show_page("notes")
-        settings_window._default_color.set("yellow")
-        settings_window._commit()
-        assert controller.state.settings.default_color == "yellow"
-        assert note.color == "yellow"
-        settings_window._default_color.set("offwhite")
-        settings_window._commit()
         settings_window._language.set("en")
         settings_window._commit()
         controller.root.update()
@@ -100,11 +110,20 @@ def main() -> int:
         second = controller.create_note(note)
         controller.root.update()
         assert len(controller.windows) == 2
-        assert second.color == "offwhite"
-        assert second.pinned is True
+        assert second.color == "yellow"
+        assert second.pinned is False
         controller.delete_note(second.id)
         controller.root.update()
         assert len(controller.windows) == 1
+
+        window._toggle_collapsed()
+        controller.root.update()
+        assert note.collapsed is True
+        assert window.window.winfo_height() < 100
+        window._toggle_collapsed()
+        controller.root.update()
+        assert note.collapsed is False
+        assert window.window.winfo_height() >= 210
 
         window.window.geometry("300x240+50+60")
         controller.root.update_idletasks()
@@ -115,11 +134,9 @@ def main() -> int:
         controller.save_now()
         restored = store.load()
         restored_note = restored.notes[0]
-        assert restored_note.title == "编辑后的标题"
+        assert restored_note.color == "navy"
         assert restored_note.pinned is True
         assert restored_note.todos[0].completed is True
-        assert restored.settings.default_color == "offwhite"
-        assert restored.settings.notes_pinned is True
         assert restored.settings.language == "en"
         controller.stop()
 
@@ -129,11 +146,15 @@ def main() -> int:
                     "result": "passed",
                     "windows": 2,
                     "todo_add_edit_toggle": True,
-                    "settings_defaults": True,
+                    "todo_wrap_and_inline_input": True,
+                    "per_note_color": True,
+                    "nine_color_picker": True,
+                    "title_removed": True,
                     "pin_toggle": True,
                     "settings_live_save": True,
                     "verified_update_install": True,
                     "note_remains_visible": True,
+                    "note_collapse_toggle": True,
                     "geometry_persisted": True,
                     "state_reloaded": True,
                 },

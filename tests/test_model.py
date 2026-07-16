@@ -13,6 +13,7 @@ class ModelTests(unittest.TestCase):
                     title="今天",
                     color="offwhite",
                     pinned=True,
+                    collapsed=True,
                     x=11,
                     y=22,
                     width=333,
@@ -27,6 +28,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(restored.notes[0].title, "今天")
         self.assertEqual(restored.notes[0].color, "offwhite")
         self.assertTrue(restored.notes[0].pinned)
+        self.assertTrue(restored.notes[0].collapsed)
         self.assertEqual(restored.notes[0].width, 333)
         self.assertTrue(restored.notes[0].todos[0].completed)
 
@@ -60,8 +62,6 @@ class ModelTests(unittest.TestCase):
         state = AppState(
             notes=[Note(title="设置")],
             settings=AppSettings(
-                default_color="offwhite",
-                notes_pinned=True,
                 open_at_login=True,
                 language="en",
             ),
@@ -70,22 +70,27 @@ class ModelTests(unittest.TestCase):
         restored = AppState.from_dict(state.to_dict())
         legacy = AppState.from_dict({"notes": [{"title": "旧数据"}]})
 
-        self.assertEqual(restored.settings.default_color, "offwhite")
-        self.assertTrue(restored.settings.notes_pinned)
         self.assertTrue(restored.settings.open_at_login)
         self.assertEqual(restored.settings.language, "en")
+        self.assertFalse(hasattr(restored.settings, "default_color"))
+        self.assertFalse(hasattr(restored.settings, "notes_pinned"))
         self.assertFalse(hasattr(restored.settings, "show_notes_on_autostart"))
         self.assertEqual(legacy.settings, AppSettings())
 
-    def test_legacy_new_note_pin_setting_migrates_to_all_notes_setting(self) -> None:
+    def test_legacy_global_note_style_settings_are_ignored(self) -> None:
         restored = AppState.from_dict(
             {
                 "notes": [{"title": "旧数据"}],
-                "settings": {"new_notes_pinned": True},
+                "settings": {
+                    "default_color": "pink",
+                    "notes_pinned": True,
+                    "new_notes_pinned": True,
+                },
             }
         )
 
-        self.assertTrue(restored.settings.notes_pinned)
+        self.assertEqual(restored.notes[0].color, "yellow")
+        self.assertFalse(restored.notes[0].pinned)
 
     def test_invalid_language_falls_back_to_chinese(self) -> None:
         settings = AppSettings.from_dict({"language": "fr"})
@@ -110,11 +115,9 @@ class ModelTests(unittest.TestCase):
                 restored = AppState.from_dict(
                     AppState(
                         notes=[Note(color=color)],
-                        settings=AppSettings(default_color=color),
                     ).to_dict()
                 )
                 self.assertEqual(restored.notes[0].color, color)
-                self.assertEqual(restored.settings.default_color, color)
 
 
 if __name__ == "__main__":

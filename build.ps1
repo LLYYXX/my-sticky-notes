@@ -154,6 +154,8 @@ $env:TK_LIBRARY = Join-Path $TclRuntime "tk8.6"
 
 & $Python (Join-Path $Root "scripts\build_app_icon.py")
 if ($LASTEXITCODE -ne 0) { throw "Unable to build the application icon." }
+& $Python (Join-Path $Root "scripts\build_note_action_icons.py")
+if ($LASTEXITCODE -ne 0) { throw "Unable to build note action icons." }
 & $Python (Join-Path $Root "scripts\build_light_icons.py")
 if ($LASTEXITCODE -ne 0) { throw "Unable to build light note icons." }
 & $Python (Join-Path $Root "scripts\build_settings_control_assets.py")
@@ -175,6 +177,8 @@ $Common = @(
 $FolderBundle = Join-Path $Stage "MyStickyNotes"
 & $Python -m PyInstaller @Common --distpath $Stage --onedir --name "MyStickyNotes" (Join-Path $Root "app.py")
 if ($LASTEXITCODE -ne 0) { throw "Unable to build the folder bundle." }
+& $Python (Join-Path $Root "scripts\check_pe_subsystem.py") (Join-Path $FolderBundle "MyStickyNotes.exe")
+if ($LASTEXITCODE -ne 0) { throw "MyStickyNotes.exe was built as a console application." }
 
 $InstallerPath = Join-Path $Publish "My Sticky Notes Setup $Version.exe"
 if (Test-Path -LiteralPath $InstallerPath) {

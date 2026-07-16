@@ -34,21 +34,15 @@ def _as_int(value: Any, default: int) -> int:
 
 @dataclass(slots=True)
 class AppSettings:
-    default_color: str = "yellow"
-    notes_pinned: bool = False
     open_at_login: bool = False
     language: str = DEFAULT_LANGUAGE
 
     def normalize(self) -> None:
-        if self.default_color not in NOTE_COLORS:
-            self.default_color = "yellow"
         self.language = normalize_language(self.language)
 
     def to_dict(self) -> dict[str, Any]:
         self.normalize()
         return {
-            "default_color": self.default_color,
-            "notes_pinned": self.notes_pinned,
             "open_at_login": self.open_at_login,
             "language": self.language,
         }
@@ -58,10 +52,6 @@ class AppSettings:
         if not isinstance(value, dict):
             return cls()
         settings = cls(
-            default_color=str(value.get("default_color", "yellow")),
-            notes_pinned=bool(
-                value.get("notes_pinned", value.get("new_notes_pinned", False))
-            ),
             open_at_login=bool(value.get("open_at_login", False)),
             language=str(value.get("language", DEFAULT_LANGUAGE)),
         )
@@ -104,6 +94,7 @@ class Note:
     title: str = "新便签"
     color: str = "yellow"
     pinned: bool = False
+    collapsed: bool = False
     x: int = 120
     y: int = 120
     width: int = 320
@@ -128,6 +119,7 @@ class Note:
             "title": self.title,
             "color": self.color,
             "pinned": self.pinned,
+            "collapsed": self.collapsed,
             "x": self.x,
             "y": self.y,
             "width": self.width,
@@ -151,6 +143,7 @@ class Note:
             title=str(value.get("title", "新便签")),
             color=str(value.get("color", "yellow")),
             pinned=bool(value.get("pinned", False)),
+            collapsed=bool(value.get("collapsed", False)),
             x=_as_int(value.get("x"), 120),
             y=_as_int(value.get("y"), 120),
             width=_as_int(value.get("width"), 320),

@@ -19,7 +19,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--settings", action="store_true")
     parser.add_argument(
         "--settings-page",
-        choices=("general", "notes", "about"),
+        choices=("general", "about"),
         default="general",
     )
     parser.add_argument("--theme", choices=tuple(THEMES), default=None)

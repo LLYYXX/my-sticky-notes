@@ -8,7 +8,12 @@ class IconSet:
     def __init__(self, root: tk.Misc) -> None:
         asset_dir = Path(__file__).resolve().parents[2] / "assets" / "icons"
         self.add = tk.PhotoImage(master=root, file=asset_dir / "add.png")
+        self.chevron_down = tk.PhotoImage(
+            master=root, file=asset_dir / "chevron-down.png"
+        )
         self.delete = tk.PhotoImage(master=root, file=asset_dir / "delete.png")
+        self.minus = tk.PhotoImage(master=root, file=asset_dir / "minus.png")
+        self.palette = tk.PhotoImage(master=root, file=asset_dir / "palette.png")
         self.pin = tk.PhotoImage(master=root, file=asset_dir / "pin.png")
         self.checkbox_off = tk.PhotoImage(
             master=root, file=asset_dir / "checkbox-off.png"
@@ -22,8 +27,17 @@ class IconSet:
         self.add_light = tk.PhotoImage(
             master=root, file=asset_dir / "add-light.png"
         )
+        self.chevron_down_light = tk.PhotoImage(
+            master=root, file=asset_dir / "chevron-down-light.png"
+        )
         self.delete_light = tk.PhotoImage(
             master=root, file=asset_dir / "delete-light.png"
+        )
+        self.minus_light = tk.PhotoImage(
+            master=root, file=asset_dir / "minus-light.png"
+        )
+        self.palette_light = tk.PhotoImage(
+            master=root, file=asset_dir / "palette-light.png"
         )
         self.pin_light = tk.PhotoImage(
             master=root, file=asset_dir / "pin-light.png"

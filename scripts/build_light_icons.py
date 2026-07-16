@@ -9,7 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 ICON_DIR = ROOT / "assets" / "icons"
 SOURCE_NAMES = (
     "add",
+    "chevron-down",
     "delete",
+    "minus",
+    "palette",
     "pin",
     "checkbox-off",
     "checkbox-on",

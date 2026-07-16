@@ -24,7 +24,7 @@ class ControllerActivationTests(unittest.TestCase):
         self.assertEqual(bring.call_args.args[0], [note.window, settings])
         note.sync_topmost.assert_called_once_with()
 
-    def test_settings_apply_color_and_pin_to_existing_notes(self) -> None:
+    def test_settings_preserve_each_notes_color_and_pin(self) -> None:
         controller = StickyNotesController.__new__(StickyNotesController)
         first = Note(color="yellow", pinned=False)
         second = Note(color="navy", pinned=False)
@@ -41,21 +41,16 @@ class ControllerActivationTests(unittest.TestCase):
         controller._update_tray_state = Mock()
 
         accepted = controller._save_settings(
-            replace(
-                AppSettings(),
-                default_color="pink",
-                notes_pinned=True,
-                language="en",
-            )
+            replace(AppSettings(), language="en")
         )
 
         self.assertTrue(accepted)
-        self.assertEqual([note.color for note in controller.state.notes], ["pink", "pink"])
-        self.assertEqual([note.pinned for note in controller.state.notes], [True, True])
-        first_window.apply_theme.assert_called_once_with()
-        second_window.apply_theme.assert_called_once_with()
-        first_window.set_pinned.assert_called_once_with(True)
-        second_window.set_pinned.assert_called_once_with(True)
+        self.assertEqual([note.color for note in controller.state.notes], ["yellow", "navy"])
+        self.assertEqual([note.pinned for note in controller.state.notes], [False, False])
+        first_window.apply_theme.assert_not_called()
+        second_window.apply_theme.assert_not_called()
+        first_window.set_pinned.assert_not_called()
+        second_window.set_pinned.assert_not_called()
         first_window.refresh_language.assert_called_once_with()
         second_window.refresh_language.assert_called_once_with()
 
