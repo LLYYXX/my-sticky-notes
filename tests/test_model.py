@@ -119,6 +119,61 @@ class ModelTests(unittest.TestCase):
                 )
                 self.assertEqual(restored.notes[0].color, color)
 
+    def test_reorder_todo_moves_to_insertion_slot_and_updates_order(self) -> None:
+        first = Todo(text="first")
+        second = Todo(text="second")
+        third = Todo(text="third")
+        note = Note(todos=[first, second, third])
+
+        changed = note.reorder_todo(first.id, 3)
+
+        self.assertTrue(changed)
+        self.assertEqual([todo.text for todo in note.todos], ["second", "third", "first"])
+        self.assertEqual([todo.order for todo in note.todos], [0, 1, 2])
+
+        restored = Note.from_dict(note.to_dict())
+        self.assertIsNotNone(restored)
+        assert restored is not None
+        self.assertEqual(
+            [todo.text for todo in restored.todos],
+            ["second", "third", "first"],
+        )
+
+    def test_reorder_todo_ignores_missing_or_unchanged_move(self) -> None:
+        first = Todo(text="first")
+        second = Todo(text="second")
+        note = Note(todos=[first, second])
+
+        self.assertFalse(note.reorder_todo("missing", 1))
+        self.assertFalse(note.reorder_todo(first.id, 1))
+        self.assertEqual([todo.text for todo in note.todos], ["first", "second"])
+
+    def test_reorder_todo_handles_reverse_middle_and_bounded_slots(self) -> None:
+        todos = [Todo(text=str(index), order=index) for index in range(4)]
+        note = Note(todos=todos)
+        zero_id = todos[0].id
+        one_id = todos[1].id
+        three_id = todos[3].id
+
+        self.assertTrue(note.reorder_todo(three_id, -20))
+        self.assertEqual([todo.text for todo in note.todos], ["3", "0", "1", "2"])
+
+        self.assertTrue(note.reorder_todo(zero_id, 3))
+        self.assertEqual([todo.text for todo in note.todos], ["3", "1", "0", "2"])
+
+        self.assertTrue(note.reorder_todo(one_id, 99))
+        self.assertEqual([todo.text for todo in note.todos], ["3", "0", "2", "1"])
+        self.assertEqual([todo.order for todo in note.todos], [0, 1, 2, 3])
+
+    def test_unchanged_reorder_repairs_non_contiguous_order_values(self) -> None:
+        first = Todo(text="first", order=10)
+        second = Todo(text="second", order=20)
+        note = Note(todos=[first, second])
+
+        self.assertFalse(note.reorder_todo(first.id, 1))
+
+        self.assertEqual([todo.order for todo in note.todos], [0, 1])
+
 
 if __name__ == "__main__":
     unittest.main()

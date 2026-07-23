@@ -30,13 +30,21 @@ class TitleBarContractTests(unittest.TestCase):
 
 
 class TodoListContractTests(unittest.TestCase):
-    def test_rows_can_wrap_and_the_add_field_stays_in_the_list(self) -> None:
-        row_source = inspect.getsource(TodoList._create_row)
-        render_source = inspect.getsource(TodoList.render)
+    def test_todo_list_exposes_only_semantic_mutation_callbacks(self) -> None:
+        parameters = inspect.signature(TodoList.__init__).parameters
 
-        self.assertIn("wraplength", row_source)
-        self.assertNotIn("pack_propagate(False)", row_source)
-        self.assertIn("self._create_add_row()", render_source)
+        self.assertEqual(
+            {
+                "master",
+                "icons",
+                "on_toggle",
+                "on_edit",
+                "on_delete",
+                "on_add",
+                "on_reorder",
+            },
+            set(parameters) - {"self"},
+        )
 
 
 class SettingsWindowContractTests(unittest.TestCase):

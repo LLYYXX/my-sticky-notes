@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from ..i18n import tr
@@ -59,11 +60,17 @@ class NoteWindow:
             color_key=note.color,
             pinned=note.pinned,
             collapsed=note.collapsed,
-            on_color=self._change_color,
-            on_new=lambda: controller.create_note(note),
-            on_pin=self._toggle_pin,
-            on_delete=lambda: controller.delete_note(note.id),
-            on_collapse=self._toggle_collapsed,
+            on_color=lambda color: self._run_note_action(
+                lambda: self._change_color(color)
+            ),
+            on_new=lambda: self._run_note_action(
+                lambda: controller.create_note(note)
+            ),
+            on_pin=lambda: self._run_note_action(self._toggle_pin),
+            on_delete=lambda: self._run_note_action(
+                lambda: controller.delete_note(note.id)
+            ),
+            on_collapse=lambda: self._run_note_action(self._toggle_collapsed),
             on_drag_start=self._drag_start,
             on_drag_motion=self._drag_motion,
             on_drag_release=self._drag_release,
@@ -81,6 +88,7 @@ class NoteWindow:
             on_edit=self._edit_todo,
             on_delete=self._delete_todo,
             on_add=self._add_todo,
+            on_reorder=self._reorder_todo,
         )
         self.todo_list.grid(row=2, column=0, sticky="nsew")
         self._placeholder_value = tr(
@@ -100,10 +108,12 @@ class NoteWindow:
 
         self.window.bind("<Configure>", self._on_configure, add="+")
         self.window.bind("<Map>", self._on_map, add="+")
-        self.window.bind("<Escape>", lambda _event: self.todo_list.focus_add())
+        self.window.bind(
+            "<Escape>",
+            lambda _event: self.todo_list.cancel_active_input(),
+        )
 
         self.apply_theme()
-        self.refresh_todos()
         self._apply_collapsed_state()
         self.sync_topmost()
         self.window.after(0, self._apply_window_style)
@@ -125,13 +135,6 @@ class NoteWindow:
             image=self.icons.themed("resize_corner", theme.icon_tone),
         )
         self.todo_list.render(self.note.todos, theme, self._placeholder_value)
-
-    def refresh_todos(self) -> None:
-        self.todo_list.render(
-            self.note.todos,
-            get_theme(self.note.color),
-            self._placeholder_value,
-        )
 
     def update_geometry_model(self) -> None:
         if not self.window.winfo_exists():
@@ -199,36 +202,46 @@ class NoteWindow:
             f"{max(MIN_WIDTH, self.note.width)}x{self._expanded_height}"
         )
 
-    def _toggle_todo(self, todo_id: str, completed: bool) -> None:
+    def _toggle_todo(self, todo_id: str, completed: bool) -> list[Todo]:
         todo = self._find_todo(todo_id)
         if todo is not None:
             todo.completed = completed
-            self.refresh_todos()
             self.controller.schedule_save()
+        return self.note.todos
 
-    def _edit_todo(self, todo_id: str, text: str) -> None:
+    def _edit_todo(self, todo_id: str, text: str) -> list[Todo]:
         todo = self._find_todo(todo_id)
         if todo is not None:
             todo.text = text.strip()
-            self.refresh_todos()
             self.controller.schedule_save()
+        return self.note.todos
 
-    def _delete_todo(self, todo_id: str) -> None:
+    def _delete_todo(self, todo_id: str) -> list[Todo]:
         self.note.todos = [todo for todo in self.note.todos if todo.id != todo_id]
         for index, todo in enumerate(self.note.todos):
             todo.order = index
-        self.refresh_todos()
         self.controller.schedule_save()
+        return self.note.todos
 
     def _find_todo(self, todo_id: str) -> Todo | None:
         return next((todo for todo in self.note.todos if todo.id == todo_id), None)
 
-    def _add_todo(self, value: str) -> None:
+    def _add_todo(self, value: str) -> list[Todo]:
         self.note.todos.append(Todo(text=value, order=len(self.note.todos)))
-        self.refresh_todos()
         self.controller.schedule_save()
+        return self.note.todos
+
+    def _reorder_todo(self, todo_id: str, target_index: int) -> list[Todo]:
+        if self.note.reorder_todo(todo_id, target_index):
+            self.controller.schedule_save()
+        return self.note.todos
+
+    def _run_note_action(self, action: Callable[[], object]) -> None:
+        self.todo_list.commit_active_input()
+        action()
 
     def _drag_start(self, event: tk.Event) -> None:
+        self.todo_list.commit_active_input()
         self._drag_origin = (
             event.x_root,
             event.y_root,

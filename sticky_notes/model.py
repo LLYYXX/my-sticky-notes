@@ -112,6 +112,30 @@ class Note:
         for index, todo in enumerate(self.todos):
             todo.order = index
 
+    def reorder_todo(self, todo_id: str, target_index: int) -> bool:
+        """Move a todo to an insertion slot and keep persisted order contiguous."""
+        source_index = next(
+            (index for index, todo in enumerate(self.todos) if todo.id == todo_id),
+            None,
+        )
+        if source_index is None:
+            return False
+
+        target_index = max(0, min(int(target_index), len(self.todos)))
+        todo = self.todos.pop(source_index)
+        if source_index < target_index:
+            target_index -= 1
+        if source_index == target_index:
+            self.todos.insert(source_index, todo)
+            for index, item in enumerate(self.todos):
+                item.order = index
+            return False
+
+        self.todos.insert(target_index, todo)
+        for index, item in enumerate(self.todos):
+            item.order = index
+        return True
+
     def to_dict(self) -> dict[str, Any]:
         self.normalize()
         return {
